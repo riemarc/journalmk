@@ -1,5 +1,6 @@
-__pycache__
-_notes
-*.egg
-*.egg-info
-.idea
+/.idea/
+
+/_notes/
+**/tmp/
+**.xopp~
+
