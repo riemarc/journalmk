@@ -1,0 +1,1 @@
+Creates a pdf-notebook/journal out of your journal/xournal/xournalpp/... notes, using latex + python.
