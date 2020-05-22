@@ -1,16 +1,25 @@
-import os, json, hashlib, subprocess, datetime, pathlib, operator
+import os, json, hashlib, subprocess, datetime, pathlib, operator, platform
 
 metadata_fname = "journalmk.json"
 
 document_begin_str = r"""
 \begin{document}
 \maketitle
+
+\doparttoc[n]
 \dominitoc
+
+\pdfbookmark{\contentsname}{Contents}
 \tableofcontents
 """
 
 document_end_str = r"""
 \end{document}
+"""
+
+part_str = r"""
+\addpart{{{part}}}
+\parttoc
 """
 
 chapter_str = r"""
@@ -24,12 +33,12 @@ section_str = r"""
     addtotoc={{1,addsec,1,{{{section}}},{label}}},
     picturecommand*={{%
         \put(10,30){{}}%
-        \put(10,10){{\href{{run:{path}}}{{{datetime} \rightarrow {{\color{{gray}}\texttt{{{path_text}}}}}}}}}%
+        \put(10,10){{\href{{run:{path}}}{{{datetime} {{\color{{gray}}-- \texttt{{{path_text}}}}}}}}}%
            }}]{{{file}}}
 """
 
 
-def find_directories(root, notes_dir_name):
+def find_directories(root, notes_dir_name, exclude_directories):
 
     if not os.path.isdir(root):
         raise ValueError(f"'{root}' is not a directory")
@@ -37,10 +46,12 @@ def find_directories(root, notes_dir_name):
     note_dirs = dict()
 
     for (dir_path, dir_names, file_names) in os.walk(root):
+        if any([dir_path.startswith(edp) for edp in exclude_directories]):
+            continue
+
         if notes_dir_name in dir_names:
             notes_path = os.path.join(dir_path, notes_dir_name)
-            if len(os.listdir(notes_path)) != 0:
-                note_dirs.update({notes_path: dict()})
+            note_dirs.update({notes_path: dict()})
 
     return note_dirs
 
@@ -78,6 +89,7 @@ def parse_metadata(note_dirs):
 
 
 def make_pdf_notes(note_dirs, notes_ending, pdf_command):
+
     for note_dir in note_dirs:
         notes = note_dirs[note_dir]["notes"]
         notes_tmp = note_dirs[note_dir]["pdfs"]
@@ -106,6 +118,7 @@ def make_pdf_notes(note_dirs, notes_ending, pdf_command):
 
 
 def parse_timestamps(note_dirs):
+
     for note_dir in note_dirs:
         timestamps = list()
         for note in note_dirs[note_dir]["notes"]:
@@ -119,6 +132,7 @@ def parse_timestamps(note_dirs):
 
 
 def get_chronological_document_tree(note_dirs):
+
     notes = list()
     for nd in note_dirs.values():
         for note, pdf, ts in zip(nd["notes"], nd["pdfs"], nd["timestamps"]):
@@ -129,6 +143,8 @@ def get_chronological_document_tree(note_dirs):
         raise ValueError("Something went wrong!")
 
     notes.sort(key=operator.itemgetter(2))
+
+    parts = list({e[2].strftime("%Y") for e in notes})
 
     chapters = dict()
     while True:
@@ -159,10 +175,27 @@ def get_chronological_document_tree(note_dirs):
     if n_notes != n_sections:
         raise ValueError("Something went wrong!")
 
-    return chapters
+    parts = dict([(part, list()) for part in sorted(parts, reverse=True)])
+    for chapter_name, chapter in chapters.items():
+        part = chapter[0][1][2].strftime("%Y")
+        parts[part].append((chapter_name, chapter))
+
+    return parts
 
 
-def make_journal(document_tree):
+def get_document_tree(note_dirs, journal_type):
+
+    if journal_type == "chronological":
+        return get_chronological_document_tree(note_dirs)
+
+    elif journal_type == "tree":
+        raise NotImplementedError
+
+    else:
+        raise NotImplementedError
+
+
+def write_tex_file(document_tree):
 
     document = open("journal.tex", "w")
 
@@ -170,19 +203,66 @@ def make_journal(document_tree):
         document.write(file.read())
 
     document.write(document_begin_str)
-    for chapter, sections in document_tree.items():
-        document.write(chapter_str.format(chapter=chapter))
-        for section in sections:
-            document.write(section_str.format(
-                section=section[0],
-                label=pathlib.Path(section[1][1]).stem,
-                datetime=section[0],
-                path=section[1][0],
-                path_text=section[1][0].replace("_", "\\_"),
-                file=section[1][1]
-            ))
+    for part, chapters in document_tree.items():
+        document.write(part_str.format(part=part))
+        for chapter, sections in chapters:
+            document.write(chapter_str.format(chapter=chapter))
+            for section in sections:
+                document.write(section_str.format(
+                    section=section[0],
+                    label=pathlib.Path(section[1][1]).stem,
+                    datetime=section[0],
+                    path=section[1][0],
+                    path_text=section[1][0].replace("_", "\\_"),
+                    file=section[1][1]
+                ))
 
     document.write(document_end_str)
     document.close()
 
 
+def open_journal():
+
+    if platform.system() == "Darwin":
+        subprocess.call(["open", "journal.pdf"])
+
+    elif platform.system() == 'Windows':
+        os.startfile("journal.pdf")
+
+    else:
+        print(platform.system())
+        subprocess.call(["xdg-open", "journal.pdf"])
+
+
+def make():
+
+    with open("journalmkrc.json") as conf_file:
+        conf = json.load(conf_file)
+
+    root_directory = os.path.abspath(os.path.join(*conf["root_directory"]))
+
+    exclude_directories = [os.path.abspath(os.path.join(*path))
+                           for path in conf["exclude_directories"]]
+
+    note_dirs = find_directories(root_directory,
+                                 conf["notes_directory_name"],
+                                 exclude_directories)
+
+    note_dirs = find_notes(note_dirs,
+                           conf["notes_file_ending"])
+
+    make_pdf_notes(note_dirs,
+                   conf["notes_file_ending"],
+                   conf["notes_pdf_export_command"])
+
+    note_dirs = parse_timestamps(note_dirs)
+
+    note_dirs = parse_metadata(note_dirs)
+
+    document_tree = get_document_tree(note_dirs, conf["journal_type"])
+
+    write_tex_file(document_tree)
+
+    subprocess.run(["latexmk", "-norc", "-pdf", "journal.tex"])
+
+    open_journal()

@@ -1,10 +1,21 @@
 \documentclass{scrreprt}
 
 \usepackage{minitoc}
+\renewcommand*{\partheadstartvskip}{%
+  \null\vskip20pt
+}
+\renewcommand*{\partheadendvskip}{%
+  \vskip2pt
+}
+\renewcommand\beforeparttoc{}
+
 \usepackage{pdfpages}
+
 \usepackage{color}
+
 \usepackage{datetime}
 \ddmmyyyydate
+
 \usepackage{hyperref}
 \hypersetup{linktoc=all, colorlinks=false, linkbordercolor={white}}
 
@@ -13,19 +24,26 @@
 \date{\today\\\currenttime}
 
 % \begin{document}
+
+% \doparttoc[n]
 % \dominitoc
 % \tableofcontents
+% \addpart{Part 1}
+% \parttoc
 % \addchap{Chapter 1}
 % \minitoc
 % \includepdf[pages=-,
-%          picturecommand*={%
-%          \put(10,10){My name}%
-%          \put(10,30){My address}%
-%          }]{tmp/9f04f76aabe63070128c3c302c99fc.pdf}
+%             addtotoc={1,addsec,1,{Another PDF Section},test},
+%             picturecommand*={\put(10,10){5. Mai 2020 -- 19:34:36 -- /home/user/documents/projects/journalmk/journalmk/example/journal}}
+%            ]{tmp/6b4c093f79f776c87a14483cbe0b47.pdf}
+% \includepdf[pages=-,
+%             addtotoc={1,addsec,1,{Another PDF Section},test},
+%             picturecommand*={\put(10,10){5. Mai 2020 -- 19:34:36 -- /home/user/documents/projects/journalmk/journalmk/example/journal}}
+%            ]{tmp/6b4c093f79f776c87a14483cbe0b47.pdf}
 % \addchap{Chapter 2}
 % \minitoc
 % \includepdf[pages=-,
 %             addtotoc={1,addsec,1,{Another PDF Section},test},
 %             picturecommand*={\put(10,10){5. Mai 2020 -- 19:34:36 -- /home/user/documents/projects/journalmk/journalmk/example/journal}}
-%            ]{tmp/9f04f76aabe63070128c3c302c99fc.pdf}
+%            ]{tmp/6b4c093f79f776c87a14483cbe0b47.pdf}
 % \end{document}
