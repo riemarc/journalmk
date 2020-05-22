@@ -1,5 +1,5 @@
 {
-    "root": "../home_directory",
+    "root": "../",
     "notes_directory_name": "_notes",
     "notes_file_ending": "xopp",
     "notes_pdf_export_command": "xournalpp {xopp} -p {pdf}",
