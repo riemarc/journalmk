@@ -1,0 +1,25 @@
+\documentclass{scrreprt}
+
+\usepackage{minitoc}
+\usepackage{pdfpages}
+\usepackage{color}
+\usepackage{hyperref}
+\hypersetup{linktoc=all, colorlinks=false, linkbordercolor={white}}
+
+\begin{document}
+\dominitoc
+\tableofcontents
+\addchap{Chapter 1}
+\minitoc
+\includepdf[pages=-,
+         picturecommand*={%
+         \put(10,10){My name}%
+         \put(10,30){My address}%
+         }]{tmp/9f04f76aabe63070128c3c302c99fc.pdf}
+\addchap{Chapter 2}
+\minitoc
+\includepdf[pages=-,
+            addtotoc={1,addsec,1,{Another PDF},test},
+            picturecommand*={\put(10,10){5. Mai 2020 -- 19:34:36 -- /home/user/documents/projects/journalmk/journalmk/example/journal}}
+           ]{tmp/9f04f76aabe63070128c3c302c99fc.pdf}
+\end{document}
