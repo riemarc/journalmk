@@ -34,6 +34,8 @@
 *.mtc
 *.mtc?
 *.mtc??
+*.ptc?
+*.ptc??
 *.nav
 *.out
 *.pdf

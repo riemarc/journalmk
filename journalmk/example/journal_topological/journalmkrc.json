@@ -3,7 +3,8 @@
     "notes_directory_name": "_notes",
     "notes_file_ending": "xopp",
     "notes_pdf_export_command": "xournalpp {xopp} -p {pdf}",
-    "journal_type": "chronological",
+    "journal_type": "topological",
+    "datetime_regex": "%Y-%m-%d-Note-%H-%M",
     "exclude_directories": [
     ]
 }

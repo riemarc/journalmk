@@ -1,4 +1,4 @@
-import os, json, hashlib, subprocess, datetime, pathlib, operator, platform
+import os, json, hashlib, subprocess, datetime, pathlib, operator, platform, collections
 
 metadata_fname = "journalmk.json"
 
@@ -117,68 +117,111 @@ def make_pdf_notes(note_dirs, notes_ending, pdf_command):
                 subprocess.run(command)
 
 
-def parse_timestamps(note_dirs):
+def parse_timestamps(note_dirs, datetime_regex):
 
     for note_dir in note_dirs:
         timestamps = list()
         for note in note_dirs[note_dir]["notes"]:
             stem = pathlib.Path(note).stem
-            # https://strftime.org/
-            timestamps.append(datetime.datetime.strptime(stem, "%Y-%m-%d-Note-%H-%M"))
+            try:
+                # https://strftime.org/
+                ts = datetime.datetime.strptime(stem, datetime_regex)
+            except ValueError:
+                ts = datetime.datetime.fromtimestamp(os.path.getctime(note))
+            timestamps.append(ts)
 
         note_dirs[note_dir].update(timestamps=timestamps)
 
     return note_dirs
 
 
+def get_sections(note_dirs, metadata=False):
+
+    if metadata:
+        note_dirs = parse_metadata(note_dirs)
+
+    sections = list()
+    for nd in note_dirs.values():
+        md = nd["metadata"]
+        for note, pdf, ts in zip(nd["notes"], nd["pdfs"], nd["timestamps"]):
+            if metadata:
+                section = (note, pdf, ts, md)
+            else:
+                section = (note, pdf, ts)
+            sections.append((ts.strftime("%d. %B %Y -- %H:%M"), section))
+    sections = sorted(sections, key=lambda it: it[1][2], reverse=True)
+
+    return sections
+
+
 def get_chronological_document_tree(note_dirs):
 
-    notes = list()
-    for nd in note_dirs.values():
-        for note, pdf, ts in zip(nd["notes"], nd["pdfs"], nd["timestamps"]):
-            notes.append([note, pdf, ts])
+    sections = get_sections(note_dirs)
 
-    n_notes = sum([len(nt["notes"]) for nt in note_dirs.values()])
-    if n_notes != len(notes):
-        raise ValueError("Something went wrong!")
+    chapters = list({s[1][2].strftime("%B %Y") for s in sections})
+    chapters = dict([(c, list()) for c in sorted(chapters, reverse=True)])
+    for s, (nt, pf, ts) in sections:
+        chapter = ts.strftime("%B %Y")
+        chapters[chapter].append((s, (nt, pf, ts)))
 
-    notes.sort(key=operator.itemgetter(2))
-
-    parts = list({e[2].strftime("%Y") for e in notes})
-
-    chapters = dict()
-    while True:
-
-        try:
-            entry = notes.pop()
-        except IndexError:
-            break
-        chapter_name = entry[2].strftime("%B %Y")
-        chapters.update({chapter_name: list()})
-        section_name = entry[2].strftime("%d. %B %Y -- %H:%M")
-        chapters[chapter_name].append((section_name, entry))
-        while True:
-            if len(notes) == 0:
-                break
-
-            if entry[2].year == notes[-1][2].year:
-                if entry[2].month == notes[-1][2].month:
-                    entry = notes.pop()
-                    section_name = entry[2].strftime("%d. %B %Y -- %H:%M")
-                    chapters[chapter_name].append((section_name, entry))
-                else:
-                    break
-            else:
-                break
-
-    n_sections = sum([len(ch) for ch in chapters.values()])
-    if n_notes != n_sections:
-        raise ValueError("Something went wrong!")
-
+    parts = list({s[1][2].strftime("%Y") for s in sections})
     parts = dict([(part, list()) for part in sorted(parts, reverse=True)])
-    for chapter_name, chapter in chapters.items():
-        part = chapter[0][1][2].strftime("%Y")
-        parts[part].append((chapter_name, chapter))
+    for chapter in chapters:
+        part = chapters[chapter][0][1][2].strftime("%Y")
+        parts[part].append((chapter, chapters[chapter]))
+
+    return parts
+
+
+def get_topological_document_tree(note_dirs):
+
+    sections = get_sections(note_dirs, metadata=True)
+
+    parts = dict()
+    for s, (nt, pf, ts, md) in sections:
+
+        if md is not None and "chapter" in md and "part" not in md:
+            pn = "Unsorted"
+            cn = ts.strftime("%B %Y")
+        elif md is not None and "chapter" in md and "part" in md:
+            pn = md["part"]
+            cn = md["chapter"]
+        elif md is not None and "chapter" not in md and "part" in md:
+            pn = md["part"]
+            cn = None
+        elif md is not None and "chapter" not in md and "part" not in md:
+            pn = "Unsorted"
+            cn = ts.strftime("%B %Y")
+        elif md is None:
+            pn = "Unsorted"
+            cn = ts.strftime("%B %Y")
+        else:
+            raise ValueError("Something went wrong!")
+
+        if pn not in parts:
+            parts.update({pn: dict()})
+
+        if cn not in parts[pn]:
+            parts[pn].update({cn: list()})
+
+        parts[pn][cn].append((s, (nt, pf, ts, md)))
+
+    parts = dict(sorted(parts.items(), key=operator.itemgetter(0)))
+    for part in parts:
+        none_chap = False
+        if None in parts[part]:
+            none_chap = parts[part].pop(None)
+
+
+        parts[part] = collections.OrderedDict(
+            sorted(parts[part].items(), key=operator.itemgetter(0),
+                   reverse=(part == "Unsorted")))
+
+        if not none_chap == False:
+            parts[part].update({None: none_chap})
+            parts[part].move_to_end(None, last=False)
+
+        parts[part] = [(cn, secs) for cn, secs in parts[part].items()]
 
     return parts
 
@@ -188,8 +231,8 @@ def get_document_tree(note_dirs, journal_type):
     if journal_type == "chronological":
         return get_chronological_document_tree(note_dirs)
 
-    elif journal_type == "tree":
-        raise NotImplementedError
+    elif journal_type == "topological":
+        return get_topological_document_tree(note_dirs)
 
     else:
         raise NotImplementedError
@@ -206,7 +249,8 @@ def write_tex_file(document_tree):
     for part, chapters in document_tree.items():
         document.write(part_str.format(part=part))
         for chapter, sections in chapters:
-            document.write(chapter_str.format(chapter=chapter))
+            if chapter is not None:
+                document.write(chapter_str.format(chapter=chapter))
             for section in sections:
                 document.write(section_str.format(
                     section=section[0],
@@ -224,14 +268,17 @@ def write_tex_file(document_tree):
 def open_journal():
 
     if platform.system() == "Darwin":
-        subprocess.call(["open", "journal.pdf"])
+        subprocess.run(["open", "journal.pdf"])
 
-    elif platform.system() == 'Windows':
+    elif platform.system() == "Windows":
         os.startfile("journal.pdf")
 
-    else:
+    elif platform.system() == "Linux":
         print(platform.system())
-        subprocess.call(["xdg-open", "journal.pdf"])
+        subprocess.run(["xdg-open", "journal.pdf"])
+
+    else:
+        raise NotImplementedError
 
 
 def make():
@@ -255,7 +302,7 @@ def make():
                    conf["notes_file_ending"],
                    conf["notes_pdf_export_command"])
 
-    note_dirs = parse_timestamps(note_dirs)
+    note_dirs = parse_timestamps(note_dirs, conf["datetime_regex"])
 
     note_dirs = parse_metadata(note_dirs)
 
