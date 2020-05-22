@@ -1,5 +1,7 @@
 /.idea/
 
+**.egg-info/
+
 /_notes/
 **/tmp/
 **.xopp~
@@ -46,3 +48,4 @@
 *.synctex(busy)
 *.tdo
 *.toc
+*.tex

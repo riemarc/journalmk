@@ -1,12 +1,14 @@
 from journalmk import *
 
 
-with open("journalmkrc.json") as conf_file:
-    conf = json.load(conf_file)
-
-
 def main():
-    note_dirs = find_directories(conf["root"],
+
+    with open("journalmkrc.json") as conf_file:
+        conf = json.load(conf_file)
+
+    root_directory = os.path.abspath(os.path.join(*conf["root_directory"]))
+
+    note_dirs = find_directories(root_directory,
                                  conf["notes_directory_name"])
 
     note_dirs = find_notes(note_dirs,
@@ -20,7 +22,8 @@ def main():
     note_dirs = parse_metadata(note_dirs)
 
     if conf["journal_type"] == "chronological":
-        make_chronological_journal(note_dirs)
+        document_tree = get_chronological_document_tree(note_dirs)
+        make_journal(document_tree)
 
     elif conf["journal_type"] == "tree":
         raise NotImplementedError
