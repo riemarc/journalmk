@@ -117,15 +117,15 @@ def make_pdf_notes(note_dirs, notes_ending, pdf_command):
                 subprocess.run(command)
 
 
-def parse_timestamps(note_dirs, datetime_regex):
+def parse_timestamps(note_dirs, formats):
 
     for note_dir in note_dirs:
         timestamps = list()
         for note in note_dirs[note_dir]["notes"]:
             stem = pathlib.Path(note).stem
             try:
-                # https://strftime.org/
-                ts = datetime.datetime.strptime(stem, datetime_regex)
+                ts = datetime.datetime.strptime(
+                    stem, formats["datetime_filename_format"])
             except ValueError:
                 ts = datetime.datetime.fromtimestamp(os.path.getctime(note))
             timestamps.append(ts)
@@ -135,7 +135,7 @@ def parse_timestamps(note_dirs, datetime_regex):
     return note_dirs
 
 
-def get_sections(note_dirs, metadata=False):
+def get_sections(note_dirs, formats, metadata=False):
 
     if metadata:
         note_dirs = parse_metadata(note_dirs)
@@ -148,41 +148,42 @@ def get_sections(note_dirs, metadata=False):
                 section = (note, pdf, ts, md)
             else:
                 section = (note, pdf, ts)
-            sections.append((ts.strftime("%d. %B %Y -- %H:%M"), section))
+            sections.append(
+                (ts.strftime(formats["datetime_journal_format"]), section))
     sections = sorted(sections, key=lambda it: it[1][2], reverse=True)
 
     return sections
 
 
-def get_chronological_document_tree(note_dirs):
+def get_chronological_document_tree(note_dirs, formats):
 
-    sections = get_sections(note_dirs)
+    sections = get_sections(note_dirs, formats)
 
-    chapters = list({s[1][2].strftime("%B %Y") for s in sections})
+    chapters = list({s[1][2].strftime(formats["month_year_journal_format"]) for s in sections})
     chapters = dict([(c, list()) for c in sorted(chapters, reverse=True)])
     for s, (nt, pf, ts) in sections:
-        chapter = ts.strftime("%B %Y")
+        chapter = ts.strftime(formats["month_year_journal_format"])
         chapters[chapter].append((s, (nt, pf, ts)))
 
-    parts = list({s[1][2].strftime("%Y") for s in sections})
+    parts = list({s[1][2].strftime(formats["year_journal_format"]) for s in sections})
     parts = dict([(part, list()) for part in sorted(parts, reverse=True)])
     for chapter in chapters:
-        part = chapters[chapter][0][1][2].strftime("%Y")
+        part = chapters[chapter][0][1][2].strftime(formats["year_journal_format"])
         parts[part].append((chapter, chapters[chapter]))
 
     return parts
 
 
-def get_topological_document_tree(note_dirs):
+def get_topological_document_tree(note_dirs, formats):
 
-    sections = get_sections(note_dirs, metadata=True)
+    sections = get_sections(note_dirs, formats, metadata=True)
 
     parts = dict()
     for s, (nt, pf, ts, md) in sections:
 
         if md is not None and "chapter" in md and "part" not in md:
             pn = "Unsorted"
-            cn = ts.strftime("%B %Y")
+            cn = ts.strftime(formats["month_year_journal_format"])
         elif md is not None and "chapter" in md and "part" in md:
             pn = md["part"]
             cn = md["chapter"]
@@ -191,10 +192,10 @@ def get_topological_document_tree(note_dirs):
             cn = None
         elif md is not None and "chapter" not in md and "part" not in md:
             pn = "Unsorted"
-            cn = ts.strftime("%B %Y")
+            cn = ts.strftime(formats["month_year_journal_format"])
         elif md is None:
             pn = "Unsorted"
-            cn = ts.strftime("%B %Y")
+            cn = ts.strftime(formats["month_year_journal_format"])
         else:
             raise ValueError("Something went wrong!")
 
@@ -212,7 +213,6 @@ def get_topological_document_tree(note_dirs):
         if None in parts[part]:
             none_chap = parts[part].pop(None)
 
-
         parts[part] = collections.OrderedDict(
             sorted(parts[part].items(), key=operator.itemgetter(0),
                    reverse=(part == "Unsorted")))
@@ -226,13 +226,13 @@ def get_topological_document_tree(note_dirs):
     return parts
 
 
-def get_document_tree(note_dirs, journal_type):
+def get_document_tree(note_dirs, journal_type, formats):
 
     if journal_type == "chronological":
-        return get_chronological_document_tree(note_dirs)
+        return get_chronological_document_tree(note_dirs, formats)
 
     elif journal_type == "topological":
-        return get_topological_document_tree(note_dirs)
+        return get_topological_document_tree(note_dirs, formats)
 
     else:
         raise NotImplementedError
@@ -281,10 +281,36 @@ def open_journal():
         raise NotImplementedError
 
 
+# https://strftime.org/
+formats = dict(datetime_journal_format="%d. %B %Y -- %H:%M",
+               datetime_filename_format="%Y-%m-%d-Note-%H-%M",
+               month_year_journal_format="%B %Y",
+               year_journal_format="%Y")
+
+
+def update_formats(conf):
+    f = formats.copy()
+
+    def update_format(ff, key):
+        if key in conf:
+            ff[key] = conf[key]
+
+        return ff
+
+    f = update_format(f, "datetime_journal_format")
+    f = update_format(f, "datetime_filename_format")
+    f = update_format(f, "month_year_journal_format")
+    f = update_format(f, "year_journal_format")
+
+    return f
+
+
 def make():
 
     with open("journalmkrc.json") as conf_file:
         conf = json.load(conf_file)
+
+    formats = update_formats(conf)
 
     root_directory = os.path.abspath(os.path.join(*conf["root_directory"]))
 
@@ -302,11 +328,11 @@ def make():
                    conf["notes_file_ending"],
                    conf["notes_pdf_export_command"])
 
-    note_dirs = parse_timestamps(note_dirs, conf["datetime_regex"])
+    note_dirs = parse_timestamps(note_dirs, formats)
 
     note_dirs = parse_metadata(note_dirs)
 
-    document_tree = get_document_tree(note_dirs, conf["journal_type"])
+    document_tree = get_document_tree(note_dirs, conf["journal_type"], formats)
 
     write_tex_file(document_tree)
 

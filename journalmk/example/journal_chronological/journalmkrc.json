@@ -4,7 +4,8 @@
     "notes_file_ending": "xopp",
     "notes_pdf_export_command": "xournalpp {xopp} -p {pdf}",
     "journal_type": "chronological",
-    "datetime_regex": "%Y-%m-%d-Note-%H-%M",
+    "datetime_filename_format": "%Y-%m-%d-Note-%H-%M",
+    "datetime_journal_format": "%d. %B %Y -- %H:%M",
     "exclude_directories": [
     ]
 }
