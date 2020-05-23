@@ -32,9 +32,8 @@ section_str = r"""
     pages=-,
     addtotoc={{1,addsec,1,{{{section}}},{label}}},
     picturecommand*={{%
-        \put(10,30){{}}%
         \put(10,10){{\href{{run:{path}}}{{{datetime} {{\color{{gray}}-- \texttt{{{path_text}}}}}}}}}%
-           }}]{{{file}}}
+    }}]{{{file}}}
 """
 
 
@@ -56,14 +55,15 @@ def find_directories(root, notes_dir_name, exclude_directories):
     return note_dirs
 
 
-def find_notes(note_dirs, notes_ending):
+def find_notes(note_dirs, notes_endings):
 
     for note_dir in note_dirs:
         notes = list()
         notes_tmp = list()
         for note in os.listdir(note_dir):
             note_path = os.path.join(note_dir, note)
-            if note.endswith(notes_ending) and os.path.isfile(note_path):
+            is_note = any([note.endswith(ne) for ne in notes_endings])
+            if is_note and os.path.isfile(note_path):
                 note_hash = hashlib.sha224(note_path.encode()).hexdigest()[:30]
                 note_tmp_path = os.path.join("tmp", note_hash + ".pdf")
                 note_tmp_path = os.path.abspath(note_tmp_path)
@@ -88,7 +88,28 @@ def parse_metadata(note_dirs):
     return note_dirs
 
 
-def make_pdf_notes(note_dirs, notes_ending, pdf_command):
+def make_pdf_note(note, pdf, pdf_commands):
+
+    notes_ending = [ne for ne in pdf_commands if note.endswith(ne)][0]
+    pdf_command = pdf_commands[notes_ending]
+
+    if not os.path.exists("tmp"):
+        os.mkdir("tmp")
+
+    command_tmp = pdf_command.split(" ")
+    command = list()
+    for cmd_part in command_tmp:
+        if "{" + notes_ending + "}" == cmd_part:
+            command.append(note)
+        elif "{pdf}" == cmd_part:
+            command.append(pdf)
+        else:
+            command.append(cmd_part)
+
+    subprocess.run(command)
+
+
+def make_pdf_notes(note_dirs, pdf_commands):
 
     for note_dir in note_dirs:
         notes = note_dirs[note_dir]["notes"]
@@ -102,19 +123,7 @@ def make_pdf_notes(note_dirs, notes_ending, pdf_command):
                 create_pdf = True
 
             if create_pdf:
-                if not os.path.exists("tmp"):
-                    os.mkdir("tmp")
-                command_tmp = pdf_command.split(" ")
-                command = list()
-                for cmd_part in command_tmp:
-                    if "{" + notes_ending + "}" == cmd_part:
-                        command.append(note)
-                    elif "{pdf}" == cmd_part:
-                        command.append(note_tmp)
-                    else:
-                        command.append(cmd_part)
-
-                subprocess.run(command)
+                make_pdf_note(note, note_tmp, pdf_commands)
 
 
 def parse_timestamps(note_dirs, formats):
@@ -321,12 +330,9 @@ def make():
                                  conf["notes_directory_name"],
                                  exclude_directories)
 
-    note_dirs = find_notes(note_dirs,
-                           conf["notes_file_ending"])
+    note_dirs = find_notes(note_dirs, conf["notes_pdf_export_commands"])
 
-    make_pdf_notes(note_dirs,
-                   conf["notes_file_ending"],
-                   conf["notes_pdf_export_command"])
+    make_pdf_notes(note_dirs, conf["notes_pdf_export_commands"])
 
     note_dirs = parse_timestamps(note_dirs, formats)
 

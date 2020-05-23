@@ -11,3 +11,7 @@ class TestMain(unittest.TestCase):
     def test_topological(self):
         os.chdir(os.path.join("..", "example", "journal_topological"))
         main()
+
+    def test_chronological_matplotlib(self):
+        os.chdir(os.path.join("..", "example", "journal_chronological_matplotlib"))
+        main()

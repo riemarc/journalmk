@@ -1,10 +1,11 @@
 {
     "root_directory": [".."],
     "notes_directory_name": "_notes",
-    "notes_file_ending": "xopp",
+    "notes_pdf_export_commands": {
+        "xopp": "xournalpp {xopp} -p {pdf}"
+    },
     "notes_pdf_export_command": "xournalpp {xopp} -p {pdf}",
     "journal_type": "topological",
-    "datetime_filename_format": "%Y-%m-%d-Note-%H-%M",
     "datetime_journal_format": "%d. %B %Y -- %H:%M",
     "exclude_directories": [
     ]
