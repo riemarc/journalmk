@@ -2,6 +2,42 @@ import os, json, hashlib, subprocess, datetime, pathlib, operator, platform, col
 
 metadata_fname = "journalmk.json"
 
+document_preamble = r"""
+\documentclass{scrreprt}
+
+\usepackage{minitoc}
+\renewcommand*{\partheadstartvskip}{%
+  \null\vskip20pt
+}
+\renewcommand*{\partheadendvskip}{%
+  \vskip2pt
+}
+\renewcommand\beforeparttoc{}
+
+\usepackage{pdfpages}
+
+\usepackage{color}
+
+\usepackage{datetime}
+\ddmmyyyydate
+
+\usepackage{hyperref}
+\hypersetup{linktoc=all, colorlinks=false, linkbordercolor={white}}
+
+\makeatletter
+\newcommand*\addsubsec{\secdef\@addsubsec\@saddsubsec}
+\newcommand*{\@addsubsec}{}
+\def\@addsubsec[#1]#2{\subsection*{#2}\addcontentsline{toc}{subsection}{#1}
+  \if@twoside\ifx\@mkboth\markboth\markright{#1}\fi\fi
+}
+\newcommand*{\@saddsubsec}[1]{\subsection*{#1}\@mkboth{}{}}
+\makeatother
+
+\title{Notebook}
+\author{created with journalmk}
+\date{\today\\\currenttime}
+"""
+
 document_begin_str = r"""
 \begin{document}
 \maketitle
@@ -11,10 +47,6 @@ document_begin_str = r"""
 
 \pdfbookmark{\contentsname}{Contents}
 \tableofcontents
-"""
-
-document_end_str = r"""
-\end{document}
 """
 
 part_str = r"""
@@ -27,13 +59,21 @@ chapter_str = r"""
 \minitoc
 """
 
-section_str = r"""
+sec_toc_str = "1,addsec,1,{{{section}}},sec{label}"
+
+subsec_toc_str = "1,addsubsec,1,{{{subsection}}},subsec{label}"
+
+subsection_str = r"""
 \includepdf[
     pages=-,
-    addtotoc={{1,addsec,1,{{{section}}},{label}}},
+    addtotoc={{{addtotoc}}},
     picturecommand*={{%
         \put(10,10){{\href{{run:{path}}}{{{datetime} {{\color{{gray}}-- \texttt{{{path_text}}}}}}}}}%
     }}]{{{file}}}
+"""
+
+document_end_str = r"""
+\end{document}
 """
 
 
@@ -55,15 +95,17 @@ def find_directories(root, notes_dir_name, exclude_directories):
     return note_dirs
 
 
-def find_notes(note_dirs, notes_endings):
+def find_notes(note_dirs, note_endings, exclude_note_endings):
 
     for note_dir in note_dirs:
         notes = list()
         notes_tmp = list()
         for note in os.listdir(note_dir):
             note_path = os.path.join(note_dir, note)
-            is_note = any([note.endswith(ne) for ne in notes_endings])
-            if is_note and os.path.isfile(note_path):
+            is_file = os.path.isfile(note_path)
+            is_note = any([note.endswith(ne) for ne in note_endings])
+            exclude = any([note.endswith(ene) for ene in exclude_note_endings])
+            if is_file and is_note and not exclude:
                 note_hash = hashlib.sha224(note_path.encode()).hexdigest()[:30]
                 note_tmp_path = os.path.join("tmp", note_hash + ".pdf")
                 note_tmp_path = os.path.abspath(note_tmp_path)
@@ -144,48 +186,66 @@ def parse_timestamps(note_dirs, formats):
     return note_dirs
 
 
-def get_sections(note_dirs, formats, metadata=False):
+def get_subsections(note_dirs, formats, metadata=False):
 
     if metadata:
         note_dirs = parse_metadata(note_dirs)
 
-    sections = list()
+    subsections = list()
     for nd in note_dirs.values():
         md = nd["metadata"]
         for note, pdf, ts in zip(nd["notes"], nd["pdfs"], nd["timestamps"]):
             if metadata:
-                section = (note, pdf, ts, md)
+                subsection = (note, pdf, ts, md)
             else:
-                section = (note, pdf, ts)
-            sections.append(
-                (ts.strftime(formats["datetime_journal_format"]), section))
-    sections = sorted(sections, key=lambda it: it[1][2], reverse=True)
+                subsection = (note, pdf, ts)
+            subsections.append(
+                (ts.strftime(formats["datetime_journal_format"]), subsection))
+    subsections = sorted(subsections, key=lambda it: it[1][2], reverse=True)
 
-    return sections
+    return subsections
 
 
 def get_chronological_document_tree(note_dirs, formats):
 
-    sections = get_sections(note_dirs, formats)
+    subsections = get_subsections(note_dirs, formats)
 
-    chapters = list({s[1][2].strftime(formats["month_year_journal_format"]) for s in sections})
+    unique_sec = "%W %Y"
+    sections = list({s[1][2].strftime(unique_sec) for s in subsections})
+    sections = dict([(s, list()) for s in sorted(sections, reverse=True)])
+    for ss, (nt, pf, ts) in subsections:
+        section = ts.strftime(unique_sec)
+        sections[section].append((ss, (nt, pf, ts)))
+    sections = [
+        (v[0][1][2].strftime(formats["week_number_format"]), v)
+        for _, v in sections.items()]
+
+    unique_chap = "%B %Y"
+    chapters = list({s[1][2].strftime(unique_chap) for s in subsections})
     chapters = dict([(c, list()) for c in sorted(chapters, reverse=True)])
-    for s, (nt, pf, ts) in sections:
-        chapter = ts.strftime(formats["month_year_journal_format"])
-        chapters[chapter].append((s, (nt, pf, ts)))
+    for sec, subsecs in sections:
+        chapter = subsecs[0][1][2].strftime(unique_chap)
+        chapters[chapter].append((sec, subsecs))
+    chapters = [
+        (v[0][1][0][1][2].strftime(formats["month_year_journal_format"]), v)
+        for _, v in chapters.items()]
 
-    parts = list({s[1][2].strftime(formats["year_journal_format"]) for s in sections})
+    unique_part = "%Y"
+    parts = list({s[1][2].strftime(unique_part) for s in subsections})
     parts = dict([(part, list()) for part in sorted(parts, reverse=True)])
-    for chapter in chapters:
-        part = chapters[chapter][0][1][2].strftime(formats["year_journal_format"])
-        parts[part].append((chapter, chapters[chapter]))
+    for chap, secs in chapters:
+        part = secs[0][1][0][1][2].strftime(unique_part)
+        parts[part].append((chap, secs))
+    parts = [
+        (v[0][1][0][1][0][1][2].strftime(formats["year_journal_format"]), v)
+        for _, v in parts.items()]
 
     return parts
 
 
 def get_topological_document_tree(note_dirs, formats):
 
-    sections = get_sections(note_dirs, formats, metadata=True)
+    sections = get_subsections(note_dirs, formats, metadata=True)
 
     parts = dict()
     for s, (nt, pf, ts, md) in sections:
@@ -251,24 +311,37 @@ def write_tex_file(document_tree):
 
     document = open("journal.tex", "w")
 
-    with open("journal_template.tex", "r") as file:
-        document.write(file.read())
+    try:
+        with open("journal_template.tex", "r") as file:
+            document.write(file.read())
+    except Exception as e:
+        print(e)
+        document.write(document_preamble)
 
     document.write(document_begin_str)
-    for part, chapters in document_tree.items():
+    for part, chapters in document_tree:
         document.write(part_str.format(part=part))
         for chapter, sections in chapters:
             if chapter is not None:
                 document.write(chapter_str.format(chapter=chapter))
-            for section in sections:
-                document.write(section_str.format(
-                    section=section[0],
-                    label=pathlib.Path(section[1][1]).stem,
-                    datetime=section[0],
-                    path=section[1][0],
-                    path_text=section[1][0].replace("_", "\\_"),
-                    file=section[1][1]
-                ))
+            for section, subsections in sections:
+                label = pathlib.Path(subsections[0][1][1]).stem
+                add_to_toc = [sec_toc_str.format(section=section, label=label)]
+                for subsection in subsections:
+                    label = pathlib.Path(subsection[1][1]).stem
+                    add_to_toc.append(subsec_toc_str.format(
+                        subsection=subsection[0],
+                        label=label))
+                    print(add_to_toc)
+                    document.write(subsection_str.format(
+                        section=subsection[0],
+                        addtotoc=", ".join(add_to_toc),
+                        datetime=subsection[0],
+                        path=subsection[1][0],
+                        path_text=subsection[1][0].replace("_", "\\_"),
+                        file=subsection[1][1]
+                    ))
+                    add_to_toc = list()
 
     document.write(document_end_str)
     document.close()
@@ -283,7 +356,6 @@ def open_journal():
         os.startfile("journal.pdf")
 
     elif platform.system() == "Linux":
-        print(platform.system())
         subprocess.run(["xdg-open", "journal.pdf"])
 
     else:
@@ -293,7 +365,8 @@ def open_journal():
 # https://strftime.org/
 formats = dict(datetime_journal_format="%d. %B %Y -- %H:%M",
                datetime_filename_format="%Y-%m-%d-Note-%H-%M",
-               month_year_journal_format="%B %Y",
+               week_number_format="Week %W",
+               month_year_journal_format="%B",
                year_journal_format="%Y")
 
 
@@ -308,6 +381,7 @@ def update_formats(conf):
 
     f = update_format(f, "datetime_journal_format")
     f = update_format(f, "datetime_filename_format")
+    f = update_format(f, "week_number_format")
     f = update_format(f, "month_year_journal_format")
     f = update_format(f, "year_journal_format")
 
@@ -330,7 +404,12 @@ def make():
                                  conf["notes_directory_name"],
                                  exclude_directories)
 
-    note_dirs = find_notes(note_dirs, conf["notes_pdf_export_commands"])
+    if not "exclude_note_endings" in conf:
+        conf.update({"exclude_note_endings": []})
+
+    note_dirs = find_notes(note_dirs,
+                           conf["notes_pdf_export_commands"],
+                           conf["exclude_note_endings"])
 
     make_pdf_notes(note_dirs, conf["notes_pdf_export_commands"])
 
