@@ -3,7 +3,8 @@
     "notes_directory_name": "_notes",
     "notes_pdf_export_commands": {
         "xopp": "xournalpp {xopp} -p {pdf}",
-        "py": "python {py} {pdf}"
+        "py": "python {py} {pdf}",
+        "ipynb": "jupyter nbconvert {ipynb} --to pdf --output {pdf}"
     },
     "journal_type": "chronological",
     "exclude_directories": [

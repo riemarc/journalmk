@@ -19,6 +19,15 @@
 \usepackage{hyperref}
 \hypersetup{linktoc=all, colorlinks=false, linkbordercolor={white}}
 
-\title{Notebook}
+\makeatletter
+\newcommand*\addsubsec{\secdef\@addsubsec\@saddsubsec}
+\newcommand*{\@addsubsec}{}
+\def\@addsubsec[#1]#2{\subsection*{#2}\addcontentsline{toc}{subsection}{#1}
+  \if@twoside\ifx\@mkboth\markboth\markright{#1}\fi\fi
+}
+\newcommand*{\@saddsubsec}[1]{\subsection*{#1}\@mkboth{}{}}
+\makeatother
+
+\title{Notebook (topological)}
 \author{created with journalmk}
 \date{\today\\\currenttime}

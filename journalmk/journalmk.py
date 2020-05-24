@@ -221,14 +221,16 @@ def get_chronological_document_tree(note_dirs, formats):
         for _, v in sections.items()]
 
     unique_chap = "%B %Y"
-    chapters = list({s[1][2].strftime(unique_chap) for s in subsections})
-    chapters = dict([(c, list()) for c in sorted(chapters, reverse=True)])
+    chapters = dict()
     for sec, subsecs in sections:
         chapter = subsecs[0][1][2].strftime(unique_chap)
+        if chapter not in chapters:
+            chapters.update({chapter: list()})
         chapters[chapter].append((sec, subsecs))
+    ch_ts = lambda ch: ch[0][1][0][1][2]
     chapters = [
-        (v[0][1][0][1][2].strftime(formats["month_year_journal_format"]), v)
-        for _, v in chapters.items()]
+        (ch_ts(v).strftime(formats["month_year_journal_format"]), v)
+        for v in sorted(chapters.values(), key=ch_ts, reverse=True)]
 
     unique_part = "%Y"
     parts = list({s[1][2].strftime(unique_part) for s in subsections})
@@ -245,52 +247,72 @@ def get_chronological_document_tree(note_dirs, formats):
 
 def get_topological_document_tree(note_dirs, formats):
 
-    sections = get_subsections(note_dirs, formats, metadata=True)
+    subsections = get_subsections(note_dirs, formats, metadata=True)
 
     parts = dict()
-    for s, (nt, pf, ts, md) in sections:
+    for s, (nt, pf, ts, md) in subsections:
+        if md is not None:
+            pa_ex = "part" in md
+            ch_ex = "chapter" in md
+            se_ex = "section" in md
+            if not pa_ex:
+                pn = "Unsorted"
+                cn = ts.strftime("%Y")
+                sn = ts.strftime("%B %Y")
+            else:
+                pn = md["part"]
+                cn = md["chapter"] if ch_ex else None
+                sn = md["section"] if se_ex else None
 
-        if md is not None and "chapter" in md and "part" not in md:
-            pn = "Unsorted"
-            cn = ts.strftime(formats["month_year_journal_format"])
-        elif md is not None and "chapter" in md and "part" in md:
-            pn = md["part"]
-            cn = md["chapter"]
-        elif md is not None and "chapter" not in md and "part" in md:
-            pn = md["part"]
-            cn = None
-        elif md is not None and "chapter" not in md and "part" not in md:
-            pn = "Unsorted"
-            cn = ts.strftime(formats["month_year_journal_format"])
-        elif md is None:
-            pn = "Unsorted"
-            cn = ts.strftime(formats["month_year_journal_format"])
         else:
-            raise ValueError("Something went wrong!")
+            pn = "Unsorted"
+            cn = ts.strftime("%Y")
+            sn = ts.strftime("%B %Y")
 
         if pn not in parts:
             parts.update({pn: dict()})
 
         if cn not in parts[pn]:
-            parts[pn].update({cn: list()})
+            parts[pn].update({cn: dict()})
 
-        parts[pn][cn].append((s, (nt, pf, ts, md)))
+        if sn not in parts[pn][cn]:
+            parts[pn][cn].update({sn: list()})
+
+        parts[pn][cn][sn].append((s, (nt, pf, ts, md)))
 
     parts = dict(sorted(parts.items(), key=operator.itemgetter(0)))
-    for part in parts:
-        none_chap = False
-        if None in parts[part]:
-            none_chap = parts[part].pop(None)
+    for part, chapters in parts.items():
+        for chapter, sections in chapters.items():
+            none_sec = False
+            if None in sections:
+                none_sec = sections.pop(None)
 
-        parts[part] = collections.OrderedDict(
-            sorted(parts[part].items(), key=operator.itemgetter(0),
+            sections = collections.OrderedDict(
+                sorted(sections.items(), key=operator.itemgetter(0),
+                       reverse=(part=="Unsorted")))
+
+            if not none_sec == False:
+                sections.update({None: none_sec})
+                sections.move_to_end(None, last=False)
+
+            parts[part][chapter] = [(s, ss) for s, ss in sections.items()]
+
+    for part, chapters in parts.items():
+        none_chap = False
+        if None in chapters:
+            none_chap = chapters.pop(None)
+
+        chapters = collections.OrderedDict(
+            sorted(chapters.items(), key=operator.itemgetter(0),
                    reverse=(part == "Unsorted")))
 
         if not none_chap == False:
-            parts[part].update({None: none_chap})
-            parts[part].move_to_end(None, last=False)
+            chapters.update({None: none_chap})
+            chapters.move_to_end(None, last=False)
 
-        parts[part] = [(cn, secs) for cn, secs in parts[part].items()]
+        parts[part] = [(cn, secs) for cn, secs in chapters.items()]
+
+    parts = [(p, chs) for p, chs in parts.items()]
 
     return parts
 
@@ -326,7 +348,12 @@ def write_tex_file(document_tree):
                 document.write(chapter_str.format(chapter=chapter))
             for section, subsections in sections:
                 label = pathlib.Path(subsections[0][1][1]).stem
-                add_to_toc = [sec_toc_str.format(section=section, label=label)]
+                if section is None:
+                    add_to_toc = list()
+                else:
+                    add_to_toc = [sec_toc_str.format(
+                        section=section,
+                        label=label)]
                 for subsection in subsections:
                     label = pathlib.Path(subsection[1][1]).stem
                     add_to_toc.append(subsec_toc_str.format(
