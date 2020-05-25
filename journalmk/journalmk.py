@@ -206,41 +206,41 @@ def get_subsections(note_dirs, formats, metadata=False):
     return subsections
 
 
+def get_chronological_limb(entries, unique_id, limb_format, subsec_f):
+
+    limbs = dict()
+    for branch, entry in entries:
+        limb = subsec_f(entry).strftime(unique_id)
+        if limb not in limbs:
+            limbs.update({limb: list()})
+        limbs[limb].append((branch, entry))
+
+    timestamp_f = lambda lb: subsec_f(lb[0][1])
+    limbs = [
+        (timestamp_f(v).strftime(limb_format), v)
+        for v in sorted(limbs.values(), key=timestamp_f, reverse=True)]
+
+    return limbs
+
+
 def get_chronological_document_tree(note_dirs, formats):
 
     subsections = get_subsections(note_dirs, formats)
 
-    unique_sec = "%W %Y"
-    sections = list({s[1][2].strftime(unique_sec) for s in subsections})
-    sections = dict([(s, list()) for s in sorted(sections, reverse=True)])
-    for ss, (nt, pf, ts) in subsections:
-        section = ts.strftime(unique_sec)
-        sections[section].append((ss, (nt, pf, ts)))
-    sections = [
-        (v[0][1][2].strftime(formats["week_number_format"]), v)
-        for _, v in sections.items()]
+    sections = get_chronological_limb(subsections,
+                                      "%W %Y",
+                                      formats["week_number_format"],
+                                      lambda ch: ch[2])
 
-    unique_chap = "%B %Y"
-    chapters = dict()
-    for sec, subsecs in sections:
-        chapter = subsecs[0][1][2].strftime(unique_chap)
-        if chapter not in chapters:
-            chapters.update({chapter: list()})
-        chapters[chapter].append((sec, subsecs))
-    ch_ts = lambda ch: ch[0][1][0][1][2]
-    chapters = [
-        (ch_ts(v).strftime(formats["month_year_journal_format"]), v)
-        for v in sorted(chapters.values(), key=ch_ts, reverse=True)]
+    chapters = get_chronological_limb(sections,
+                                      "%B %Y",
+                                      formats["month_year_journal_format"],
+                                      lambda ch: ch[0][1][2])
 
-    unique_part = "%Y"
-    parts = list({s[1][2].strftime(unique_part) for s in subsections})
-    parts = dict([(part, list()) for part in sorted(parts, reverse=True)])
-    for chap, secs in chapters:
-        part = secs[0][1][0][1][2].strftime(unique_part)
-        parts[part].append((chap, secs))
-    parts = [
-        (v[0][1][0][1][0][1][2].strftime(formats["year_journal_format"]), v)
-        for _, v in parts.items()]
+    parts = get_chronological_limb(chapters,
+                                   "%Y",
+                                   formats["year_journal_format"],
+                                   lambda ch: ch[0][1][0][1][2])
 
     return parts
 
@@ -336,8 +336,7 @@ def write_tex_file(document_tree):
     try:
         with open("journal_template.tex", "r") as file:
             document.write(file.read())
-    except Exception as e:
-        print(e)
+    except FileNotFoundError:
         document.write(document_preamble)
 
     document.write(document_begin_str)
@@ -359,7 +358,6 @@ def write_tex_file(document_tree):
                     add_to_toc.append(subsec_toc_str.format(
                         subsection=subsection[0],
                         label=label))
-                    print(add_to_toc)
                     document.write(subsection_str.format(
                         section=subsection[0],
                         addtotoc=", ".join(add_to_toc),
@@ -451,3 +449,5 @@ def make():
     subprocess.run(["latexmk", "-norc", "-pdf", "journal.tex"])
 
     open_journal()
+
+    print("Journalmk: Finished")
