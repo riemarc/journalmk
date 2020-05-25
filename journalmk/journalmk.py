@@ -1,6 +1,6 @@
-import os, json, hashlib, subprocess, datetime, pathlib, operator, platform, collections
+import datetime, hashlib, json, operator, os, pathlib, platform, subprocess
 
-metadata_fname = "journalmk.json"
+metadata_filename = "journalmk.json"
 
 document_preamble = r"""
 \documentclass{scrreprt}
@@ -123,8 +123,8 @@ def parse_metadata(note_dirs):
 
     for note_dir in note_dirs:
         note_dirs[note_dir].update(metadata=None)
-        if metadata_fname in os.listdir(note_dir):
-            with open(os.path.join(note_dir, metadata_fname)) as mdf:
+        if metadata_filename in os.listdir(note_dir):
+            with open(os.path.join(note_dir, metadata_filename)) as mdf:
                 note_dirs[note_dir].update(metadata=json.load(mdf))
 
     return note_dirs
@@ -193,81 +193,140 @@ def get_subsections(note_dirs, formats, metadata=False):
 
     subsections = list()
     for nd in note_dirs.values():
-        md = nd["metadata"]
+        if "metadata" in nd:
+            md = nd["metadata"]
+        else:
+            md = None
+
         for note, pdf, ts in zip(nd["notes"], nd["pdfs"], nd["timestamps"]):
-            if metadata:
-                subsection = (note, pdf, ts, md)
-            else:
-                subsection = (note, pdf, ts)
+            subsection = (note, pdf, ts, md)
+
             subsections.append(
                 (ts.strftime(formats["datetime_journal_format"]), subsection))
+
     subsections = sorted(subsections, key=lambda it: it[1][2], reverse=True)
 
     return subsections
 
 
-def get_chronological_limb(entries, unique_id, limb_format, subsec_f):
+def classify_chronological_entry(entry):
+    ts = entry[2]
+    part_name = ts.strftime("%Y")
+    chapter_name = ts.strftime("%B %Y")
+    section_name = ts.strftime("%W %Y")
 
-    limbs = dict()
-    for branch, entry in entries:
-        limb = subsec_f(entry).strftime(unique_id)
-        if limb not in limbs:
-            limbs.update({limb: list()})
-        limbs[limb].append((branch, entry))
-
-    timestamp_f = lambda lb: subsec_f(lb[0][1])
-    limbs = [
-        (timestamp_f(v).strftime(limb_format), v)
-        for v in sorted(limbs.values(), key=timestamp_f, reverse=True)]
-
-    return limbs
+    return part_name, chapter_name, section_name
 
 
-def get_chronological_document_tree(note_dirs, formats):
+def classify_topological_entry(entry):
 
-    subsections = get_subsections(note_dirs, formats)
+    md = entry[3]
+    unsorted = False
+    if md is None:
+        unsorted = True
+    else:
+        if "part" in md:
+            part_name = md["part"]
+            chapter_name = md["chapter"] if "chapter" in md else None
+            section_name = md["section"] if "section" in md else None
+        else:
+            unsorted = True
 
-    sections = get_chronological_limb(subsections,
-                                      "%W %Y",
-                                      formats["week_number_format"],
-                                      lambda ch: ch[2])
+    if unsorted:
+        ts = entry[2]
+        part_name = None
+        chapter_name = ts.strftime("%Y")
+        section_name = ts.strftime("%B %Y")
 
-    chapters = get_chronological_limb(sections,
-                                      "%B %Y",
-                                      formats["month_year_journal_format"],
-                                      lambda ch: ch[0][1][2])
+    return part_name, chapter_name, section_name
 
-    parts = get_chronological_limb(chapters,
-                                   "%Y",
-                                   formats["year_journal_format"],
-                                   lambda ch: ch[0][1][0][1][2])
+
+def format_chronological_document_limb(limb, limb_format, subsec_ts):
+    limb = [(subsec_ts(v).strftime(limb_format), v)
+            for v in sorted(limb.values(), key=subsec_ts, reverse=True)]
+
+    return limb
+
+
+def format_chronological_document_tree(parts, formats):
+    for part, chapters in parts.items():
+        for chapter, sections in chapters.items():
+            parts[part][chapter] = format_chronological_document_limb(
+                sections,
+                formats["week_number_format"],
+                lambda it: it[0][1][2])
+
+    for part, chapters in parts.items():
+        parts[part] = format_chronological_document_limb(
+            chapters,
+            formats["month_year_journal_format"],
+            lambda it: it[0][1][0][1][2])
+
+    parts = format_chronological_document_limb(
+        parts,
+        formats["year_journal_format"],
+        lambda it: it[0][1][0][1][0][1][2])
 
     return parts
 
 
-def get_topological_document_tree(note_dirs, formats):
+def sort_topological_document_limb(branches, none_index=0):
+
+    none_branch = False
+    if None in branches:
+        none_branch = branches.pop(None)
+
+    branches = [(b, entries) for b, entries in
+                sorted(branches.items(), key=operator.itemgetter(0))]
+
+    if not none_branch == False:
+        branches.insert(none_index, (None, none_branch))
+
+    return branches
+
+
+def sort_topological_document_tree(parts):
+
+    for part, chapters in parts.items():
+        for chapter, sections in parts[part].items():
+            if part is None:
+                parts[part][chapter] = format_chronological_document_limb(
+                    sections,
+                    formats["month_year_journal_format"],
+                    lambda it: it[0][1][2])
+            else:
+                parts[part][chapter] = sort_topological_document_limb(sections)
+
+    for part, chapters in parts.items():
+        if part is None:
+            parts[part] = format_chronological_document_limb(
+                chapters,
+                formats["year_journal_format"],
+                lambda it: it[0][1][0][1][2])
+        else:
+            parts[part] = sort_topological_document_limb(chapters)
+
+    parts = sort_topological_document_limb(parts, none_index=len(parts)-1)
+
+    return parts
+
+
+def get_document_tree(note_dirs, journal_type, formats):
+
+    if journal_type == "topological":
+        note_dirs = parse_metadata(note_dirs)
 
     subsections = get_subsections(note_dirs, formats, metadata=True)
 
     parts = dict()
-    for s, (nt, pf, ts, md) in subsections:
-        if md is not None:
-            pa_ex = "part" in md
-            ch_ex = "chapter" in md
-            se_ex = "section" in md
-            if not pa_ex:
-                pn = "Unsorted"
-                cn = ts.strftime("%Y")
-                sn = ts.strftime("%B %Y")
-            else:
-                pn = md["part"]
-                cn = md["chapter"] if ch_ex else None
-                sn = md["section"] if se_ex else None
+    for s, entry in subsections:
 
+        if journal_type == "chronological":
+            pn, cn, sn = classify_chronological_entry(entry)
+        elif journal_type == "topological":
+            pn, cn, sn = classify_topological_entry(entry)
         else:
-            pn = "Unsorted"
-            cn = ts.strftime("%Y")
-            sn = ts.strftime("%B %Y")
+            raise NotImplementedError
 
         if pn not in parts:
             parts.update({pn: dict()})
@@ -278,55 +337,16 @@ def get_topological_document_tree(note_dirs, formats):
         if sn not in parts[pn][cn]:
             parts[pn][cn].update({sn: list()})
 
-        parts[pn][cn][sn].append((s, (nt, pf, ts, md)))
-
-    parts = dict(sorted(parts.items(), key=operator.itemgetter(0)))
-    for part, chapters in parts.items():
-        for chapter, sections in chapters.items():
-            none_sec = False
-            if None in sections:
-                none_sec = sections.pop(None)
-
-            sections = collections.OrderedDict(
-                sorted(sections.items(), key=operator.itemgetter(0),
-                       reverse=(part=="Unsorted")))
-
-            if not none_sec == False:
-                sections.update({None: none_sec})
-                sections.move_to_end(None, last=False)
-
-            parts[part][chapter] = [(s, ss) for s, ss in sections.items()]
-
-    for part, chapters in parts.items():
-        none_chap = False
-        if None in chapters:
-            none_chap = chapters.pop(None)
-
-        chapters = collections.OrderedDict(
-            sorted(chapters.items(), key=operator.itemgetter(0),
-                   reverse=(part == "Unsorted")))
-
-        if not none_chap == False:
-            chapters.update({None: none_chap})
-            chapters.move_to_end(None, last=False)
-
-        parts[part] = [(cn, secs) for cn, secs in chapters.items()]
-
-    parts = [(p, chs) for p, chs in parts.items()]
-
-    return parts
-
-
-def get_document_tree(note_dirs, journal_type, formats):
+        parts[pn][cn][sn].append((s, entry))
 
     if journal_type == "chronological":
-        return get_chronological_document_tree(note_dirs, formats)
-
+        parts = format_chronological_document_tree(parts, formats)
     elif journal_type == "topological":
-        return get_topological_document_tree(note_dirs, formats)
-
+        parts = sort_topological_document_tree(parts)
     else:
         raise NotImplementedError
+
+    return parts
 
 
 def write_tex_file(document_tree):
@@ -341,7 +361,10 @@ def write_tex_file(document_tree):
 
     document.write(document_begin_str)
     for part, chapters in document_tree:
-        document.write(part_str.format(part=part))
+        if part is not None:
+            document.write(part_str.format(part=part))
+        else:
+            document.write(part_str.format(part="Unsorted"))
         for chapter, sections in chapters:
             if chapter is not None:
                 document.write(chapter_str.format(chapter=chapter))
@@ -429,7 +452,7 @@ def make():
                                  conf["notes_directory_name"],
                                  exclude_directories)
 
-    if not "exclude_note_endings" in conf:
+    if "exclude_note_endings" not in conf:
         conf.update({"exclude_note_endings": []})
 
     note_dirs = find_notes(note_dirs,
@@ -439,8 +462,6 @@ def make():
     make_pdf_notes(note_dirs, conf["notes_pdf_export_commands"])
 
     note_dirs = parse_timestamps(note_dirs, formats)
-
-    note_dirs = parse_metadata(note_dirs)
 
     document_tree = get_document_tree(note_dirs, conf["journal_type"], formats)
 

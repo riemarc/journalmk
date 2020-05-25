@@ -1,17 +1,27 @@
-import unittest, os
+import unittest, os, subprocess
 from journalmk.__main__ import main
+
+paths = dict(
+    chrono=["..", "example", "journal_chronological"],
+    topo=["..", "example", "journal_topological"],
+    chrono_mpl=["..", "example", "journal_chronological_matplotlib"])
+for key, path in paths.items():
+    paths[key] = os.path.abspath(os.path.join(*path))
 
 
 class TestMain(unittest.TestCase):
 
     def test_chronological(self):
-        os.chdir(os.path.join("..", "example", "journal_chronological"))
+        os.chdir(paths["chrono"])
+        subprocess.run(["latexmk", "-c"])
         main()
 
     def test_topological(self):
-        os.chdir(os.path.join("..", "example", "journal_topological"))
+        os.chdir(paths["topo"])
+        subprocess.run(["latexmk", "-c"])
         main()
 
     def test_chronological_matplotlib(self):
-        os.chdir(os.path.join("..", "example", "journal_chronological_matplotlib"))
+        os.chdir(paths["chrono_mpl"])
+        subprocess.run(["latexmk", "-c"])
         main()
