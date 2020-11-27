@@ -148,10 +148,12 @@ def make_pdf_note(note, pdf, pdf_commands):
         else:
             command.append(cmd_part)
 
-    subprocess.run(command)
+    print("Journalmk: Run command '" + " ".join(command) + "'")
+    return subprocess.run(command)
 
 
 def make_pdf_notes(note_dirs, pdf_commands):
+    failed_processes = list()
 
     for note_dir in note_dirs:
         notes = note_dirs[note_dir]["notes"]
@@ -165,7 +167,11 @@ def make_pdf_notes(note_dirs, pdf_commands):
                 create_pdf = True
 
             if create_pdf:
-                make_pdf_note(note, note_tmp, pdf_commands)
+                completed_process = make_pdf_note(note, note_tmp, pdf_commands)
+                if completed_process.returncode != 0:
+                    failed_processes.append(completed_process)
+
+    return failed_processes
 
 
 def parse_timestamps(note_dirs, formats):
@@ -459,7 +465,7 @@ def make():
                            conf["notes_pdf_export_commands"],
                            conf["exclude_note_endings"])
 
-    make_pdf_notes(note_dirs, conf["notes_pdf_export_commands"])
+    err_processes = make_pdf_notes(note_dirs, conf["notes_pdf_export_commands"])
 
     note_dirs = parse_timestamps(note_dirs, formats)
 
@@ -471,4 +477,10 @@ def make():
 
     open_journal()
 
-    print("Journalmk: Finished")
+    if err_processes:
+        print("Journalmk: Finished with errors")
+        for p in err_processes:
+            print("Journalmk: Error in " + str(p))
+    else:
+        print("Journalmk: Finished")
+
