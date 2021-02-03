@@ -129,6 +129,16 @@ def parse_metadata(note_dirs):
 
     return note_dirs
 
+def make_pdf_note_from_libreoffice_file(note, pdf):
+    note_path = pathlib.Path(note)
+    pdf_path = pathlib.Path(pdf)
+    command = ["libreoffice", "--convert-to", "pdf", note, "--outdir",
+               str(pdf_path.parent)]
+    command_output = run_command(command)
+    src_file = os.path.join(pdf_path.parent, note_path.stem + ".pdf")
+    os.rename(src_file, pdf)
+
+    return command_output
 
 def make_pdf_note(note, pdf, pdf_commands):
 
@@ -137,6 +147,9 @@ def make_pdf_note(note, pdf, pdf_commands):
 
     if not os.path.exists("tmp"):
         os.mkdir("tmp")
+
+    if pdf_command == "libreoffice":
+        return make_pdf_note_from_libreoffice_file(note, pdf)
 
     command_tmp = pdf_command.split(" ")
     command = list()
@@ -148,9 +161,11 @@ def make_pdf_note(note, pdf, pdf_commands):
         else:
             command.append(cmd_part)
 
+    return run_command(command)
+
+def run_command(command):
     print("Journalmk: Run command '" + " ".join(command) + "'")
     return subprocess.run(command)
-
 
 def make_pdf_notes(note_dirs, pdf_commands):
     failed_processes = list()
