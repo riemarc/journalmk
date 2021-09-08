@@ -8,5 +8,6 @@
     },
     "journal_type": "chronological",
     "exclude_directories": [
-    ]
+    ],
+    "journal_period": [525600]
 }

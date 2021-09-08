@@ -95,26 +95,52 @@ def find_directories(root, notes_dir_name, exclude_directories):
     return note_dirs
 
 
-def find_notes(note_dirs, note_endings, exclude_note_endings):
+def parse_timestamp(note_path, period, formats):
+
+    stem = pathlib.Path(note_path).stem
+    try:
+        ts = datetime.datetime.strptime(
+            stem, formats["datetime_filename_format"])
+    except ValueError:
+        ts = datetime.datetime.fromtimestamp(os.path.getctime(note_path))
+
+    if period[0] is not None:
+        is_greater = ts >= period[0]
+    else:
+        is_greater = True
+
+    if period[1] is not None:
+        is_less = ts <= period[1]
+    else:
+        is_less = True
+
+    return ts, is_greater and is_less
+
+
+def find_notes(note_dirs, note_endings, exclude_note_endings, period, formats):
 
     for note_dir in note_dirs:
         notes = list()
         notes_tmp = list()
+        notes_ts = list()
         for note in os.listdir(note_dir):
             note_path = os.path.join(note_dir, note)
             is_file = os.path.isfile(note_path)
             is_note = any([note.endswith(ne) for ne in note_endings])
+            ts, is_in_period = parse_timestamp(note_path, period, formats)
             exclude = any([note.endswith(ene) for ene in exclude_note_endings])
-            if is_file and is_note and not exclude:
+            if is_file and is_note and is_in_period and not exclude:
                 note_hash = hashlib.sha224(note_path.encode()).hexdigest()[:30]
                 note_tmp_path = os.path.join("tmp", note_hash + ".pdf")
                 note_tmp_path = os.path.abspath(note_tmp_path)
 
                 notes.append(note_path)
                 notes_tmp.append(note_tmp_path)
+                notes_ts.append(ts)
 
         note_dirs[note_dir].update(notes=notes)
         note_dirs[note_dir].update(pdfs=notes_tmp)
+        note_dirs[note_dir].update(timestamps=notes_ts)
 
     return note_dirs
 
@@ -129,6 +155,7 @@ def parse_metadata(note_dirs):
 
     return note_dirs
 
+
 def make_pdf_note_from_libreoffice_file(note, pdf):
     note_path = pathlib.Path(note)
     pdf_path = pathlib.Path(pdf)
@@ -139,6 +166,7 @@ def make_pdf_note_from_libreoffice_file(note, pdf):
     os.rename(src_file, pdf)
 
     return command_output
+
 
 def make_pdf_note(note, pdf, pdf_commands):
 
@@ -163,9 +191,11 @@ def make_pdf_note(note, pdf, pdf_commands):
 
     return run_command(command)
 
+
 def run_command(command):
     print("Journalmk: Run command '" + " ".join(command) + "'")
     return subprocess.run(command)
+
 
 def make_pdf_notes(note_dirs, pdf_commands):
     failed_processes = list()
@@ -187,24 +217,6 @@ def make_pdf_notes(note_dirs, pdf_commands):
                     failed_processes.append(completed_process)
 
     return failed_processes
-
-
-def parse_timestamps(note_dirs, formats):
-
-    for note_dir in note_dirs:
-        timestamps = list()
-        for note in note_dirs[note_dir]["notes"]:
-            stem = pathlib.Path(note).stem
-            try:
-                ts = datetime.datetime.strptime(
-                    stem, formats["datetime_filename_format"])
-            except ValueError:
-                ts = datetime.datetime.fromtimestamp(os.path.getctime(note))
-            timestamps.append(ts)
-
-        note_dirs[note_dir].update(timestamps=timestamps)
-
-    return note_dirs
 
 
 def get_subsections(note_dirs, formats, metadata=False):
@@ -457,12 +469,32 @@ def update_formats(conf):
     return f
 
 
+def parse_period_date(date_str):
+    if date_str is not None:
+        return datetime.datetime.strptime(date_str, "%Y-%m-%d--%H-%M")
+
+
+def parse_period_dates(period):
+    if len(period) == 1:
+        end = datetime.datetime.today()
+        start = end - datetime.timedelta(minutes=period[0])
+    elif len(period) == 2:
+        start = parse_period_date(period[0])
+        end = parse_period_date(period[1])
+    else:
+        raise NotImplementedError
+
+    return start, end
+
 def make():
 
     with open("journalmkrc.json") as conf_file:
         conf = json.load(conf_file)
 
-    formats = update_formats(conf)
+    if "journal_period" not in conf:
+        conf.update(journal_period=[None, None])
+    else:
+        conf["journal_period"] = parse_period_dates(conf["journal_period"])
 
     root_directory = os.path.abspath(os.path.join(*conf["root_directory"]))
 
@@ -478,11 +510,11 @@ def make():
 
     note_dirs = find_notes(note_dirs,
                            conf["notes_pdf_export_commands"],
-                           conf["exclude_note_endings"])
+                           conf["exclude_note_endings"],
+                           conf["journal_period"],
+                           formats)
 
     err_processes = make_pdf_notes(note_dirs, conf["notes_pdf_export_commands"])
-
-    note_dirs = parse_timestamps(note_dirs, formats)
 
     document_tree = get_document_tree(note_dirs, conf["journal_type"], formats)
 
@@ -498,4 +530,3 @@ def make():
             print("Journalmk: Error in " + str(p))
     else:
         print("Journalmk: Finished")
-

@@ -8,5 +8,6 @@
     "journal_type": "topological",
     "datetime_journal_format": "%d. %B %Y -- %H:%M",
     "exclude_directories": [
-    ]
+    ],
+    "journal_period": ["2019-03-01--00-00", "2020-03-01--00-00"]
 }
