@@ -98,10 +98,15 @@ def find_directories(root, notes_dir_name, exclude_directories):
 def parse_timestamp(note_path, period, formats):
 
     stem = pathlib.Path(note_path).stem
-    try:
-        ts = datetime.datetime.strptime(
-            stem, formats["datetime_filename_format"])
-    except ValueError:
+    for fo in formats["datetime_filename_formats"]:
+        try:
+            ts = datetime.datetime.strptime(
+                stem, fo)
+            break
+        except ValueError:
+            ts = None
+
+    if ts is None:
         ts = datetime.datetime.fromtimestamp(os.path.getctime(note_path))
 
     if period[0] is not None:
@@ -445,7 +450,7 @@ def open_journal():
 
 # https://strftime.org/
 formats = dict(datetime_journal_format="%d. %B %Y -- %H:%M",
-               datetime_filename_format="%Y-%m-%d-Note-%H-%M",
+               datetime_filename_formats=["%Y-%m-%d-Note-%H-%M"],
                week_number_format="Week %W",
                month_year_journal_format="%B",
                year_journal_format="%Y")
@@ -461,7 +466,7 @@ def update_formats(conf):
         return ff
 
     f = update_format(f, "datetime_journal_format")
-    f = update_format(f, "datetime_filename_format")
+    f = update_format(f, "datetime_filename_formats")
     f = update_format(f, "week_number_format")
     f = update_format(f, "month_year_journal_format")
     f = update_format(f, "year_journal_format")
