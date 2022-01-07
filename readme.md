@@ -55,9 +55,11 @@ These are the default ones:
 * `"month_year_journal_format": "%B"`
 * `"year_journal_format": "%Y"`
 
-TODO: Key `"exclude_directories"`
+TODO: Keys `"exclude_directories"` and `"period"`
 
-## The journal pdf file
+### Summary of all possible controls in journalmkrc.json
+
+### The journal pdf file
 TODO: chrono hierarchy, topo hierarchy, file link
 
 ## Installation

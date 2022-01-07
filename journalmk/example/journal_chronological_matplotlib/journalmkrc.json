@@ -1,6 +1,6 @@
 {
     "root_directory": [".."],
-    "notes_directory_name": "_notes",
+    "notes_directory_names": ["_notes"],
     "notes_pdf_export_commands": {
         "xopp": "xournalpp {xopp} -p {pdf}",
         "py": "python {py} {pdf}",

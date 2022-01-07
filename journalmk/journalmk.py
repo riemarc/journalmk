@@ -77,7 +77,7 @@ document_end_str = r"""
 """
 
 
-def find_directories(root, notes_dir_name, exclude_directories):
+def find_directories(root, notes_dir_names, exclude_directories):
 
     if not os.path.isdir(root):
         raise ValueError(f"'{root}' is not a directory")
@@ -88,20 +88,26 @@ def find_directories(root, notes_dir_name, exclude_directories):
         if any([dir_path.startswith(edp) for edp in exclude_directories]):
             continue
 
-        if notes_dir_name in dir_names:
-            notes_path = os.path.join(dir_path, notes_dir_name)
-            note_dirs.update({notes_path: dict()})
+        elif notes_dir_names is None:
+            for dir_name in dir_names:
+                notes_path = os.path.join(dir_path, dir_name)
+                note_dirs.update({notes_path: dict()})
+
+        else:
+            for notes_dir_name in notes_dir_names:
+                if notes_dir_name in dir_names:
+                    notes_path = os.path.join(dir_path, notes_dir_name)
+                    note_dirs.update({notes_path: dict()})
 
     return note_dirs
 
 
-def parse_timestamp(note_path, period, formats):
+def parse_timestamp(note_path, period, dt_formats):
 
     stem = pathlib.Path(note_path).stem
-    for fo in formats["datetime_filename_formats"]:
+    for fo in dt_formats:
         try:
-            ts = datetime.datetime.strptime(
-                stem, fo)
+            ts = datetime.datetime.strptime(stem, fo)
             break
         except ValueError:
             ts = None
@@ -122,7 +128,7 @@ def parse_timestamp(note_path, period, formats):
     return ts, is_greater and is_less
 
 
-def find_notes(note_dirs, note_endings, exclude_note_endings, period, formats):
+def find_notes(note_dirs, note_endings, exclude_note_endings, period, dt_formats):
 
     for note_dir in note_dirs:
         notes = list()
@@ -132,7 +138,7 @@ def find_notes(note_dirs, note_endings, exclude_note_endings, period, formats):
             note_path = os.path.join(note_dir, note)
             is_file = os.path.isfile(note_path)
             is_note = any([note.endswith(ne) for ne in note_endings])
-            ts, is_in_period = parse_timestamp(note_path, period, formats)
+            ts, is_in_period = parse_timestamp(note_path, period, dt_formats)
             exclude = any([note.endswith(ene) for ene in exclude_note_endings])
             if is_file and is_note and is_in_period and not exclude:
                 note_hash = hashlib.sha224(note_path.encode()).hexdigest()[:30]
@@ -349,7 +355,7 @@ def sort_topological_document_tree(parts):
     return parts
 
 
-def get_document_tree(note_dirs, journal_type, formats):
+def get_document_tree(note_dirs, journal_type, formats, user_formats):
 
     if journal_type == "topological":
         note_dirs = parse_metadata(note_dirs)
@@ -378,7 +384,7 @@ def get_document_tree(note_dirs, journal_type, formats):
         parts[pn][cn][sn].append((s, entry))
 
     if journal_type == "chronological":
-        parts = format_chronological_document_tree(parts, formats)
+        parts = format_chronological_document_tree(parts, user_formats)
     elif journal_type == "topological":
         parts = sort_topological_document_tree(parts)
     else:
@@ -450,7 +456,6 @@ def open_journal():
 
 # https://strftime.org/
 formats = dict(datetime_journal_format="%d. %B %Y -- %H:%M",
-               datetime_filename_formats=["%Y-%m-%d-Note-%H-%M"],
                week_number_format="Week %W",
                month_year_journal_format="%B",
                year_journal_format="%Y")
@@ -466,7 +471,6 @@ def update_formats(conf):
         return ff
 
     f = update_format(f, "datetime_journal_format")
-    f = update_format(f, "datetime_filename_formats")
     f = update_format(f, "week_number_format")
     f = update_format(f, "month_year_journal_format")
     f = update_format(f, "year_journal_format")
@@ -507,7 +511,7 @@ def make():
                            for path in conf["exclude_directories"]]
 
     note_dirs = find_directories(root_directory,
-                                 conf["notes_directory_name"],
+                                 conf["notes_directory_names"],
                                  exclude_directories)
 
     if "exclude_note_endings" not in conf:
@@ -517,11 +521,15 @@ def make():
                            conf["notes_pdf_export_commands"],
                            conf["exclude_note_endings"],
                            conf["journal_period"],
-                           formats)
+                           conf["datetime_filename_formats"])
 
     err_processes = make_pdf_notes(note_dirs, conf["notes_pdf_export_commands"])
 
-    document_tree = get_document_tree(note_dirs, conf["journal_type"], formats)
+    user_formats = update_formats(conf)
+    document_tree = get_document_tree(note_dirs,
+                                      conf["journal_type"],
+                                      formats,
+                                      user_formats)
 
     write_tex_file(document_tree)
 
