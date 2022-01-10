@@ -7,9 +7,9 @@ with open("requirements.txt") as f:
 
 setuptools.setup(
     name="journalmk",
-    version="2020.1a",
+    version="2022.1a",
     author="Marcus Riesmeier",
-    author_email="marcus.riesmeier@umit.com",
+    author_email="marcus.riesmeier@umit-tirol.com",
     license="BSD 3-Clause License",
     description=description,
     long_description=description,

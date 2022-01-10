@@ -556,3 +556,7 @@ def make():
             print("Journalmk: Error in " + str(p))
     else:
         print("Journalmk: Finished")
+
+
+if __name__ == "__main__":
+    make()
