@@ -1,0 +1,16 @@
+{
+    "root_directory": [".."],
+    "notes_directory_names": ["_notes"],
+    "notes_pdf_export_commands": {
+        "xopp": "xournalpp {xopp} -p {pdf}"
+    },
+    "notes_pdf_inplace_export_commands": {
+        "odt": "libreoffice --convert-to pdf {odt} --outdir {outdir}"
+    },
+    "journal_type": "topological",
+    "datetime_journal_format": "%d. %B %Y -- %H:%M",
+    "exclude_directories": [
+    ],
+    "datetime_filename_formats": ["%Y-%m-%d-Note-%H-%M"],
+    "journal_period": ["2022-01-01--00-00", "2022-01-20--00-00"]
+}

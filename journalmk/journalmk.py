@@ -1,4 +1,12 @@
-import datetime, hashlib, json, operator, os, pathlib, platform, subprocess
+import datetime
+import hashlib
+import json
+import operator
+import os
+import pathlib
+import platform
+import subprocess
+import shutil
 
 metadata_filename = "journalmk.json"
 
@@ -167,19 +175,7 @@ def parse_metadata(note_dirs):
     return note_dirs
 
 
-def make_pdf_note_from_libreoffice_file(note, pdf):
-    note_path = pathlib.Path(note)
-    pdf_path = pathlib.Path(pdf)
-    command = ["libreoffice", "--convert-to", "pdf", note, "--outdir",
-               str(pdf_path.parent)]
-    command_output = run_command(command)
-    src_file = os.path.join(pdf_path.parent, note_path.stem + ".pdf")
-    os.rename(src_file, pdf)
-
-    return command_output
-
-
-def make_pdf_note(note, pdf, pdf_commands):
+def make_pdf_note(note, pdf, pdf_commands, inplace_pdf_commands):
 
     notes_ending = [ne for ne in pdf_commands if note.endswith(ne)][0]
     pdf_command = pdf_commands[notes_ending]
@@ -187,20 +183,29 @@ def make_pdf_note(note, pdf, pdf_commands):
     if not os.path.exists("tmp"):
         os.mkdir("tmp")
 
-    if pdf_command == "libreoffice":
-        return make_pdf_note_from_libreoffice_file(note, pdf)
+    note_path = pathlib.Path(note)
+    if note_path.suffix[1:] in inplace_pdf_commands:
+        is_inplace_command = True
 
     command_tmp = pdf_command.split(" ")
     command = list()
     for cmd_part in command_tmp:
         if "{" + notes_ending + "}" == cmd_part:
             command.append(note)
-        elif "{pdf}" == cmd_part:
+        elif not inplace_pdf_commands and "{pdf}" == cmd_part:
             command.append(pdf)
+        elif is_inplace_command and "{outdir}" == cmd_part:
+            command.append(os.getcwd())
         else:
             command.append(cmd_part)
 
-    return run_command(command)
+    if is_inplace_command:
+        command_output = run_command(command)
+        src_file = os.path.join(os.getcwd(), note_path.stem + ".pdf")
+        shutil.move(src_file, pdf)
+        return command_output
+    else:
+        return run_command(command)
 
 
 def run_command(command):
@@ -208,7 +213,7 @@ def run_command(command):
     return subprocess.run(command)
 
 
-def make_pdf_notes(note_dirs, pdf_commands):
+def make_pdf_notes(note_dirs, pdf_commands, inplace_pdf_commands):
     failed_processes = list()
 
     for note_dir in note_dirs:
@@ -223,7 +228,10 @@ def make_pdf_notes(note_dirs, pdf_commands):
                 create_pdf = True
 
             if create_pdf:
-                completed_process = make_pdf_note(note, note_tmp, pdf_commands)
+                completed_process = make_pdf_note(note,
+                                                  note_tmp,
+                                                  pdf_commands,
+                                                  inplace_pdf_commands)
                 if completed_process.returncode != 0:
                     failed_processes.append(completed_process)
 
@@ -517,13 +525,18 @@ def make():
     if "exclude_note_endings" not in conf:
         conf.update({"exclude_note_endings": []})
 
+    pdf_export_commands = dict()
+    pdf_export_commands.update(conf["notes_pdf_export_commands"])
+    pdf_export_commands.update(conf["notes_pdf_inplace_export_commands"])
     note_dirs = find_notes(note_dirs,
-                           conf["notes_pdf_export_commands"],
+                           pdf_export_commands,
                            conf["exclude_note_endings"],
                            conf["journal_period"],
                            conf["datetime_filename_formats"])
 
-    err_processes = make_pdf_notes(note_dirs, conf["notes_pdf_export_commands"])
+    err_processes = make_pdf_notes(note_dirs,
+                                   pdf_export_commands,
+                                   conf["notes_pdf_inplace_export_commands"])
 
     user_formats = update_formats(conf)
     document_tree = get_document_tree(note_dirs,
