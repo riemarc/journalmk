@@ -184,15 +184,14 @@ def make_pdf_note(note, pdf, pdf_commands, inplace_pdf_commands):
         os.mkdir("tmp")
 
     note_path = pathlib.Path(note)
-    if note_path.suffix[1:] in inplace_pdf_commands:
-        is_inplace_command = True
+    is_inplace_command = note_path.suffix[1:] in inplace_pdf_commands
 
     command_tmp = pdf_command.split(" ")
     command = list()
     for cmd_part in command_tmp:
         if "{" + notes_ending + "}" == cmd_part:
             command.append(note)
-        elif not inplace_pdf_commands and "{pdf}" == cmd_part:
+        elif not is_inplace_command and "{pdf}" == cmd_part:
             command.append(pdf)
         elif is_inplace_command and "{outdir}" == cmd_part:
             command.append(os.getcwd())
@@ -233,7 +232,9 @@ def make_pdf_notes(note_dirs, pdf_commands, inplace_pdf_commands):
                                                   pdf_commands,
                                                   inplace_pdf_commands)
                 if completed_process.returncode != 0:
-                    failed_processes.append(completed_process)
+                    failed_processes.append((0, completed_process))
+                elif not os.path.isfile(note_tmp):
+                    failed_processes.append((1, completed_process))
 
     return failed_processes
 
@@ -553,7 +554,13 @@ def make():
     if err_processes:
         print("Journalmk: Finished with errors")
         for p in err_processes:
-            print("Journalmk: Error in " + str(p))
+            if p[0] == 0:
+                print("Journalmk: Error in " + str(p))
+            elif p[0] == 1:
+                print("Journalmk: Process succeeded but no pdf file produced "
+                      "from " + str(p))
+            else:
+                raise NotImplementedError
     else:
         print("Journalmk: Finished")
 
