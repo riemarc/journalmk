@@ -85,6 +85,11 @@ document_end_str = r"""
 """
 
 
+def print_jmk(*args):
+    args = ["Journalmk:"] + list(args)
+    print(*args)
+
+
 def find_directories(root, notes_dir_names, exclude_directories):
 
     if not os.path.isdir(root):
@@ -208,7 +213,7 @@ def make_pdf_note(note, pdf, pdf_commands, inplace_pdf_commands):
 
 
 def run_command(command):
-    print("Journalmk: Run command '" + " ".join(command) + "'")
+    print_jmk("Run command '" + " ".join(command) + "'")
     return subprocess.run(command)
 
 
@@ -505,6 +510,7 @@ def parse_period_dates(period):
     return start, end
 
 def make():
+    print_jmk("This is Journalmk, Marcus Riesmeier, version: 2022.1.")
 
     with open("journalmkrc.json") as conf_file:
         conf = json.load(conf_file)
@@ -547,22 +553,24 @@ def make():
 
     write_tex_file(document_tree)
 
-    subprocess.run(["latexmk", "-norc", "-pdf", "journal.tex"])
+    process = subprocess.run(["latexmk", "-norc", "-pdf", "journal.tex"])
+    if process.returncode != 0:
+        err_processes.append((0, process))
 
     open_journal()
 
     if err_processes:
-        print("Journalmk: Finished with errors")
+        print_jmk("Finished with errors")
         for p in err_processes:
             if p[0] == 0:
-                print("Journalmk: Error in " + str(p))
+                print_jmk("Error in " + str(p))
             elif p[0] == 1:
-                print("Journalmk: Process succeeded but no pdf file produced "
-                      "from " + str(p))
+                print_jmk("Process succeeded but no pdf note generated "
+                          "from " + str(p))
             else:
                 raise NotImplementedError
     else:
-        print("Journalmk: Finished")
+        print_jmk("Finished")
 
 
 if __name__ == "__main__":
