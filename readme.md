@@ -3,8 +3,8 @@ using python, latex and the pdf export capabilities of the respective
 note taking app.
 
 While it was designed to layout xournalpp notes (*.xopp) well-arranged in a pdf
-document, it can be used with all sorts of digital content/notes which have a
-pdf representation, like
+document, it can be used with all sorts of digital content/notes which can be
+converted to a pdf document, like
 
 * pictures (*.jpg, *.png, ...)
 * office documents (*.odt, *.doc, *.xls, ...)
@@ -17,8 +17,15 @@ To build a pdf journal out of your digital notes, just
 * place an empty json file, with the name `journalmkrc.json` in the directory
 * add the following lines to the json file 
 ```
-jaskdflakd
-  akjdflk
+{
+    "root_directory": [".."],
+    "notes_directory_names": ["_notes"],
+    "notes_pdf_export_commands": {
+        "xopp": "xournalpp {xopp} -p {pdf}"
+    },
+    "journal_type": "chronological",
+    "datetime_journal_format": "%d. %B %Y -- %H:%M",
+}
 ```
 * [install journalmk](#installation) and execute the command `journalmk` from this directory.
 
@@ -115,3 +122,6 @@ directory and execute `python journalmk.py`.
 ### Notes
 - Tested under Ubuntu 20.04 with Texlive 2019 and Python 3.8.
 - It is designed to be cross-platform, but only tested under Linux.
+
+### Todo
+- Notes, which lay in the future (note_date > today_date) are ignored!?
