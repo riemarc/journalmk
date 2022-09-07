@@ -124,4 +124,5 @@ directory and execute `python journalmk.py`.
 - It is designed to be cross-platform, but only tested under Linux.
 
 ### Todo
+- Write docs for user home journalmkrc and how to ignore it.
 - Notes, which lay in the future (note_date > today_date) are ignored!?

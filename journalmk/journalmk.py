@@ -97,6 +97,7 @@ def find_directories(root, notes_dir_names, exclude_directories):
 
     note_dirs = dict()
 
+    print_jmk(f"Search notes under root directory {root}.")
     for (dir_path, dir_names, file_names) in os.walk(root):
         if any([dir_path.startswith(edp) for edp in exclude_directories]):
             continue
@@ -509,11 +510,82 @@ def parse_period_dates(period):
 
     return start, end
 
+
+def load_user_journalmkrc(test_filename=None, test_userdir=None):
+    filename = ".journalmkrc.json"
+    if test_filename:
+        filename = test_filename
+
+    userdir = os.path.expanduser("~")
+    if test_userdir:
+        userdir = test_userdir
+
+    cwd = os.getcwd()
+    os.chdir(userdir)
+    msg1 = f"User-wide configuration file {filename}"
+    try:
+        with open(filename) as file:
+            jmkrc = json.load(file)
+        if "root_directory" in jmkrc:
+            raise ValueError(
+                "The key 'root_directory' should not be defined in "
+                "the system wide journalmkrc.json file (from user "
+                "home directory). \\"
+                "Define this key in the journalmkrc.json of the "
+                "respective build directory instead.")
+        msg2 = f"loaded from"
+    except FileNotFoundError:
+        jmkrc = dict()
+        msg2 = f"not found under"
+
+    print_jmk(msg1, msg2,  f"users home directory {userdir}.")
+    os.chdir(cwd)
+    return jmkrc
+
+
+def update_user_journalmkrc(conf, test_filename=None):
+    filename = "journalmkrc.json"
+    if test_filename:
+        filename = test_filename
+
+    with open(filename) as file:
+        jmkrc = json.load(file)
+    print_jmk(f"Journal-specific configuration file {filename}",
+              f"loaded from build directory {os.getcwd()}.")
+
+    ignore_key = "ignore_user_home_journalmkrc"
+    if ignore_key in jmkrc and jmkrc[ignore_key]:
+        return jmkrc
+
+    dicts = ("notes_pdf_export_commands", "notes_pdf_inplace_export_commands")
+    lists = ("notes_directory_names", "datetime_filename_formats",
+             "exclude_note_endings")
+    unhashable_lists = ("exclude_directories", )
+    for key in jmkrc:
+        if key in dicts:
+            for kkey in jmkrc[key]:
+                if key not in conf:
+                    conf.update({key: dict()})
+                conf[key].update({kkey: jmkrc[key][kkey]})
+        elif key in lists:
+            if key not in conf:
+                conf.update({key: list()})
+            conf.update({key: sorted(list(set(conf[key] + jmkrc[key])))})
+        elif key in unhashable_lists:
+            if key not in conf:
+                conf.update({key: list()})
+            conf.update({key: conf[key] + jmkrc[key]})
+        else:
+            conf.update({key: jmkrc[key]})
+
+    return conf
+
+
 def make():
     print_jmk("This is Journalmk, Marcus Riesmeier, version: 2022.1.")
 
-    with open("journalmkrc.json") as conf_file:
-        conf = json.load(conf_file)
+    conf = load_user_journalmkrc()
+    conf = update_user_journalmkrc(conf)
 
     if "journal_period" not in conf:
         conf.update(journal_period=[None, None])
@@ -530,7 +602,9 @@ def make():
                                  exclude_directories)
 
     if "exclude_note_endings" not in conf:
-        conf.update({"exclude_note_endings": []})
+        conf.update({"exclude_note_endings": list()})
+    if "notes_pdf_inplace_export_commands" not in  conf:
+        conf.update({"notes_pdf_inplace_export_commands": list()})
 
     pdf_export_commands = dict()
     pdf_export_commands.update(conf["notes_pdf_export_commands"])

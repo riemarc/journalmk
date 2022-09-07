@@ -1,0 +1,19 @@
+{
+    "root_directory": ["/", "home", "tim", "Documents"],
+    "notes_directory_names": ["_notes", "__Notes", "_other_notes"],
+    "notes_pdf_export_commands": {
+        "ipynb": "jupyter nbconvert {ipynb} --to pdf --output {pdf}",
+        "pdfnote": "cp {pdfnote} {pdf}",
+        "jpg": "convert {jpg2} {pdf2}"
+    },
+    "notes_pdf_inplace_export_commands": {
+        "odt": "libreoffice --convert-to pdf {odt} --outdir {outdir}",
+        "odt2": "libreoffice --convert-to pdf {odt} --outdir {outdir}"
+    },
+    "journal_type": "chronological",
+    "exclude_directories": [
+        ["/", "home", "marcus", "Dokumente", "Projekte", "journalmk", "journalmk", "example"]
+    ],
+    "exclude_note_endings": ["autosave2.xopp", "autosave.xopp"],
+    "journal_period": [null, null]
+}

@@ -4,7 +4,6 @@
     "notes_pdf_export_commands": {
         "xopp": "xournalpp {xopp} -p {pdf}"
     },
-    "notes_pdf_export_command": "xournalpp {xopp} -p {pdf}",
     "journal_type": "topological",
     "datetime_journal_format": "%d. %B %Y -- %H:%M",
     "exclude_directories": [
