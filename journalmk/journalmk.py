@@ -7,6 +7,7 @@ import pathlib
 import platform
 import subprocess
 import shutil
+import textwrap
 
 metadata_filename = "journalmk.json"
 
@@ -86,8 +87,14 @@ document_end_str = r"""
 
 
 def print_jmk(*args):
-    args = ["Journalmk:"] + list(args)
-    print(*args)
+    for i, line in enumerate(print_jmk.wrapper.wrap(text=" ".join(args))):
+        if i > 0:
+            print("          ", line)
+        else:
+            print("Journalmk:", line)
+
+
+print_jmk.wrapper = textwrap.TextWrapper(width=69)
 
 
 def find_directories(root, notes_dir_names, exclude_directories):
@@ -97,7 +104,7 @@ def find_directories(root, notes_dir_names, exclude_directories):
 
     note_dirs = dict()
 
-    print_jmk(f"Search notes under root directory {root}.")
+    print_jmk(f"Search notes under root directory {root}")
     for (dir_path, dir_names, file_names) in os.walk(root):
         if any([dir_path.startswith(edp) for edp in exclude_directories]):
             continue
@@ -522,7 +529,6 @@ def load_user_journalmkrc(test_filename=None, test_userdir=None):
 
     cwd = os.getcwd()
     os.chdir(userdir)
-    msg1 = f"User-wide configuration file {filename}"
     try:
         with open(filename) as file:
             jmkrc = json.load(file)
@@ -533,12 +539,14 @@ def load_user_journalmkrc(test_filename=None, test_userdir=None):
                 "home directory). \\"
                 "Define this key in the journalmkrc.json of the "
                 "respective build directory instead.")
-        msg2 = f"loaded from"
+        msg1 = f"Load"
     except FileNotFoundError:
         jmkrc = dict()
-        msg2 = f"not found under"
+        msg1 = f"Could not load"
+    msg2 = f"user-wide configuration file {filename} from home" \
+           f" directory {userdir}"
 
-    print_jmk(msg1, msg2,  f"users home directory {userdir}.")
+    print_jmk(msg1, msg2)
     os.chdir(cwd)
     return jmkrc
 
@@ -550,8 +558,8 @@ def update_user_journalmkrc(conf, test_filename=None):
 
     with open(filename) as file:
         jmkrc = json.load(file)
-    print_jmk(f"Journal-specific configuration file {filename}",
-              f"loaded from build directory {os.getcwd()}.")
+    print_jmk(f"Load journal-specific configuration file {filename}",
+              f"from build directory {os.getcwd()}")
 
     ignore_key = "ignore_user_home_journalmkrc"
     if ignore_key in jmkrc and jmkrc[ignore_key]:
@@ -582,7 +590,7 @@ def update_user_journalmkrc(conf, test_filename=None):
 
 
 def make():
-    print_jmk("This is Journalmk, Marcus Riesmeier, version: 2022.1.")
+    print_jmk("This is Journalmk, Marcus Riesmeier, version: 2022.1")
 
     conf = load_user_journalmkrc()
     conf = update_user_journalmkrc(conf)
