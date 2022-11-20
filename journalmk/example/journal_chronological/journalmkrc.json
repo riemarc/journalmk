@@ -7,5 +7,6 @@
     "journal_type": "chronological",
     "datetime_journal_format": "%d. %B %Y -- %H:%M",
     "exclude_directories": [
-    ]
+    ],
+    "ignore_user_home_journalmkrc": true
 }

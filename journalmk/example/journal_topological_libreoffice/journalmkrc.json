@@ -12,5 +12,6 @@
     "exclude_directories": [
     ],
     "datetime_filename_formats": ["%Y-%m-%d-Note-%H-%M"],
-    "journal_period": ["2022-01-01--00-00", "2022-01-20--00-00"]
+    "journal_period": ["2022-01-01--00-00", "2022-01-20--00-00"],
+    "ignore_user_home_journalmkrc": true
 }

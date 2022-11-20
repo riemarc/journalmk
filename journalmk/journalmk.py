@@ -134,6 +134,7 @@ def parse_timestamp(note_path, period, dt_formats):
             ts = None
 
     if ts is None:
+        print_jmk(f"Failed to parse timestamp from filename {note_path}")
         ts = datetime.datetime.fromtimestamp(os.path.getctime(note_path))
 
     if period[0] is not None:
@@ -157,11 +158,14 @@ def find_notes(note_dirs, note_endings, exclude_note_endings, period, dt_formats
         notes_ts = list()
         for note in os.listdir(note_dir):
             note_path = os.path.join(note_dir, note)
-            is_file = os.path.isfile(note_path)
-            is_note = any([note.endswith(ne) for ne in note_endings])
+            if not os.path.isfile(note_path):
+                continue
+            if not any([note.endswith(ne) for ne in note_endings]):
+                continue
+            if any([note.endswith(ene) for ene in exclude_note_endings]):
+                continue
             ts, is_in_period = parse_timestamp(note_path, period, dt_formats)
-            exclude = any([note.endswith(ene) for ene in exclude_note_endings])
-            if is_file and is_note and is_in_period and not exclude:
+            if is_in_period:
                 note_hash = hashlib.sha224(note_path.encode()).hexdigest()[:30]
                 note_tmp_path = os.path.join("tmp", note_hash + ".pdf")
                 note_tmp_path = os.path.abspath(note_tmp_path)
