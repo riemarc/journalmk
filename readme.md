@@ -15,9 +15,9 @@ converted to a pdf document, like
 
 ## Quickstart
 To build a pdf journal out of your digital notes, just
-* create a (preferably) empty directory (the build directory) with a name you like
-* place an empty json file, with the name `journalmkrc.json` in the directory
-* add the following lines to the json file 
+* create a empty directory (the build directory) with a name you like
+* place an empty json file, with the name `journalmkrc.json` in this directory
+* add the following lines to this json file 
 ```
 {
     "root_directory": [".."],
@@ -29,7 +29,7 @@ To build a pdf journal out of your digital notes, just
     "datetime_journal_format": "%d. %B %Y -- %H:%M",
 }
 ```
-* [install journalmk](#installation) and execute the command `journalmk` from this directory.
+* [install journalmk](#installation) and execute the command `journalmk` from the build directory.
 
 ### The root directory of the journal
 
@@ -150,7 +150,7 @@ placed to provide the name of the topic (part), subtopic (chapter) and
 subsubtopic (section), for example:
 ```
 {
-  "part": "Writting",
+  "part": "Writing",
   "chapter": "Novels",
   "section": "Working title"
 }
