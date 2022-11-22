@@ -594,7 +594,7 @@ def update_user_journalmkrc(conf, test_filename=None):
 
 
 def make():
-    print_jmk("This is Journalmk, Marcus Riesmeier, version: 2022.1")
+    print_jmk("This is Journalmk, Marcus Riesmeier, version: 2022.3")
 
     conf = load_user_journalmkrc()
     conf = update_user_journalmkrc(conf)

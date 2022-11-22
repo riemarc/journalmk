@@ -12,7 +12,7 @@ with open("requirements.txt") as f:
 
 setuptools.setup(
     name="journalmk",
-    version="2022.2",
+    version="2022.3",
     url="https://github.com/riemarc/journalmk",
     author="Marcus Riesmeier",
     author_email="gluehen-sierren-0c@icloud.com",
