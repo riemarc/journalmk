@@ -1,4 +1,9 @@
 import setuptools
+import os
+
+def read_file(filename):
+    with open(os.path.join(os.path.dirname(__file__), filename)) as file:
+        return file.read()
 
 description = ("Creates a pdf notebook/journal out of your digital notes, using latex + python")
 
@@ -8,11 +13,13 @@ with open("requirements.txt") as f:
 setuptools.setup(
     name="journalmk",
     version="2022.1",
+    url="https://github.com/riemarc/journalmk",
     author="Marcus Riesmeier",
-    author_email="marcus.riesmeier@umit-tirol.com",
+    author_email="gluehen-sierren-0c@icloud.com",
     license="BSD 3-Clause License",
     description=description,
-    long_description=description,
+    long_description=read_file('readme.md'),
+    long_description_content_type='text/markdown',
     packages=setuptools.find_packages(),
     install_requires=requirements,
     classifiers=(
