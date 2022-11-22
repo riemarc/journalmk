@@ -7,9 +7,6 @@ def read_file(filename):
 
 description = ("Creates a pdf notebook/journal out of your digital notes, using latex + python")
 
-with open("requirements.txt") as f:
-    requirements = f.read().splitlines()
-
 setuptools.setup(
     name="journalmk",
     version="2022.3",
@@ -21,7 +18,6 @@ setuptools.setup(
     long_description=read_file('readme.md'),
     long_description_content_type='text/markdown',
     packages=setuptools.find_packages(),
-    install_requires=requirements,
     classifiers=(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
