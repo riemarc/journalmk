@@ -9,7 +9,7 @@ converted to a pdf document, like
 * pictures (*.jpg, *.png, ...)
 * office documents (*.odt, *.doc, *.xls, ...)
 * ipynb jupyter notebooks (*.ipynb).
-* markup content (*.html, *.svg)
+* markup content (*.html, *.svg, ...)
 
 ## Quickstart
 To build a pdf journal out of your digital notes, just
@@ -29,14 +29,22 @@ To build a pdf journal out of your digital notes, just
 ```
 * [install journalmk](#installation) and execute the command `journalmk` from this directory.
 
-### The source directory of the journal
-The directory (the source directory) where journalmk is searching notes can
-be specified with the <source-directory> placeholder. The build directory is
-not related to the source directory, it can lay inside or outside of the source
-directory.
+### The root directory of the journal
+
+The directory (the root directory) where journalmk is searching notes can be
+specified under the `root_directory` key in the configuration file
+`journalmkrc.json`. The build directory is not related to the root directory, it
+can lay inside or outside of the root directory.
 
 ### The directory name(s) for the notes
 
+Under the key `notes_directory_names`, all directory names can be speciefied,
+in which notes can be located. Usally, this list is not to long, since in most
+cases a user has only one default identifier (for example `_notes`) which is
+used system wide, to specify the location where notes can be found.
+
+If no directory name is given, all files under the root directory are considered
+as notes.
 
 ### The filename format(s) of the notes
 
@@ -49,44 +57,136 @@ journalmkrc.json, e.g.:
 ```
 "datetime_filename_formats": ["%Y-%m-%d-Note-%H-%M", "Note--%Y-%m-%d--%H-%M"]
 ```
+
 ### A pdf conversation command
+For each notes file type a pdf export/conversation command has to be provided.
+For xournalpp note, for example, one has to add the respective command in the
+following format to the `journalmkrc.json`:
+```
+"notes_pdf_export_commands": {
+  "xopp": "xournalpp {xopp} -p {pdf}"
+}
+```
+The conversation commands for other types of files can be added to this list:
+```
+"notes_pdf_export_commands": {
+  "xopp": "xournalpp {xopp} -p {pdf}",
+  "ipynb": "jupyter nbconvert {ipynb} --to pdf --output {pdf}",
+  "jpg": "convert {jpg} {pdf}"
+}
+```
+The above placeholder `{xopp}`, `{jpg}`, `{ipynb}` will then be replaced with
+the respective filename (full path) of the note and `{pdf}` will be replaced the
+pdf filename (full path), to be export.
 
 ### A pdf in-place conversation command
-
-
+For some types of notes no command exists where the full path of the pdf file
+can be specified (for example odt files). Instead the respective commands
+provide inplace conversation, only. Thes commands has to be provided in the
+seperat list:
 ```
 "notes_pdf_inplace_export_commands": {
     "odt": "libreoffice --convert-to pdf {odt}"
 },
 ```
-
+In this list also a output directory can be specified (if necessary):
 ```
 "notes_pdf_inplace_export_commands": {
     "odt": "libreoffice --convert-to pdf {odt} --outdir {outdir}"
 },
 ```
-
 The string `"{pdf}"` should not appear in
 `notes_pdf_inplace_export_commands` entries and the string `"{outdir}"`
 should not appear in `notes_pdf_export_commands` entries,
 since they will not be replaced in these scenarios.
 
-### Other controls in the journalmkrc.json
-The format of date-related timestamps in the resulting pdf document/journal
-can be altered by specifying your preferences in the journalmkrc.json.
-These are the default ones:
+### Notes from a certain period of time
+To build a journal with notes from a cetain period of time,
+this period can be specified by start and end time, as follows
+```
+"journal_period": ["2019-03-01--16-30", "2020-03-01--16-30"],
+```
+or by a time span given in minutes, for example for all notes from the last
+half year:
+```
+"journal_period": [262800]
+```
+
+### Ignore files and folders
+Directories can be ignored by specifying there full paths,
+for example
+```
+"exclude_directories": [
+  ["/", "home", "user", "Projects", "journalmk", "journalmk", "example"]
+],
+```
+and notes can be ignored by specifying there endings, for example
+```
+"exclude_note_endings": ["autosave.xopp"]
+```
+
+
+## The resulting pdf file
+
+### Hyperlink to the note
+At the end of the first page of each note, included in the `journal.pdf`,
+a hyperlink to the original source file can be found. By clicking on this
+hyperlink the file can be directly opened with the appropriate note taking
+application. Therefore, depending on the os, some further system configuration may be
+neceessary.
+
+### Journal type
+By default the notes will be aligned chronological in the resulting
+`journal.pdf` file. To order the notes by topic one can add the following
+line to the `journalmkrc.json`:
+```
+"journal_type": "topological"
+```
+Therefore, in each notes directory, a additional `journalmk.json` can be
+placed to provide the name of the topic (part), subtopic (chapter) and
+subsubtopic (section), for example:
+```
+{
+  "part": "Writting",
+  "chapter": "Novels",
+  "section": "Working title"
+}
+```
+or
+```
+{
+  "part": "Housebuilding",
+  "chapter": "Living room",
+  "section": "Windows and lightning"
+}
+```
+
+### Date and time format
+The format of timestamps in the resulting pdf document/journal
+can be defined in the `journalmkrc.json`.
+Default:
 
 * `"datetime_journal_format": "%d. %B %Y -- %H:%M"`
 * `"week_number_format": "Week %W"`
 * `"month_year_journal_format": "%B"`
 * `"year_journal_format": "%Y"`
 
-TODO: Keys `"exclude_directories"` and `"period"`
+## Global journalmkrc.json
+All configurations which apply user-wide to (almost) all journalmk
+projects can be placed in the `.journalmkrc.json` file, located in the
+users home directory. These settings will then be loaded for all projects
+and overwritten with the settings from the project-specific `journalmkrc.json`.
+To ignore this user-wide configuration file in certain cases, the following
+line can be added to the project-specific `journalmkrc.json`:
+```
+"ignore_user_home_journalmkrc": true
+```
 
-### Summary of all possible controls in journalmkrc.json
 
-### The journal pdf file
-TODO: chrono hierarchy, topo hierarchy, file link
+## Requirements
+- Python >= 3.8
+- LaTex (with packages: latexmk, koma-script, minitoc, pdfpages, graphics, datetime, hyperref)
+
 
 ## Installation
 Journalmk is actually just a python script, but also packaged
@@ -110,19 +210,11 @@ or it can be installed with a package installer, like pip:
 
 ```pip```
 
-### Note
+### Without installation
 The command `journalmk` is only available when the package is installed.
-If you want to use it without installation, place `journalmk.py` in the build
+If you want to use  journalmk without installation, place `journalmk.py` in the build
 directory and execute `python journalmk.py`.
 
-## Requirements
-- Python >= 3.8
-- LaTex (with packages: latexmk, koma-script, minitoc, pdfpages, graphics, datetime, hyperref)
-
-### Notes
+## Notes
 - Tested under Ubuntu 20.04 with Texlive 2019 and Python 3.8.
-- It is designed to be cross-platform, but only tested under Linux.
-
-### Todo
-- Write docs for user home journalmkrc and how to ignore it.
-- Notes, which lay in the future (note_date > today_date) are ignored!?
+- Designed to be cross-platform, but only tested under Linux.
