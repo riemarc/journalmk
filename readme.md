@@ -1,3 +1,5 @@
+# Journalmk
+
 Creates a pdf notebook/journal out of journal/xournal/xournalpp/... notes,
 using python, latex and the pdf export capabilities of the respective
 note taking app.
@@ -31,10 +33,11 @@ To build a pdf journal out of your digital notes, just
 
 ### The root directory of the journal
 
-The directory (the root directory) where journalmk is searching notes can be
+The directory where journalmk is searching notes (the root directory) can be
 specified under the `root_directory` key in the configuration file
-`journalmkrc.json`. The build directory is not related to the root directory, it
-can lay inside or outside of the root directory.
+`journalmkrc.json`. The build directory can lay inside or outside of the root
+directory. Relative paths, as in the example, are relative to the build
+directory.
 
 ### The directory name(s) for the notes
 
@@ -175,45 +178,40 @@ Default:
 All configurations which apply user-wide to (almost) all journalmk
 projects can be placed in the `.journalmkrc.json` file, located in the
 users home directory. These settings will then be loaded for all projects
-and overwritten with the settings from the project-specific `journalmkrc.json`.
-To ignore this user-wide configuration file in certain cases, the following
-line can be added to the project-specific `journalmkrc.json`:
+by default and overwritten with the settings from the
+project-specific `journalmkrc.json` file. To ignore this user-wide configuration
+file in certain cases, the following line can be added to the
+project-specific `journalmkrc.json`:
 ```
 "ignore_user_home_journalmkrc": true
 ```
 
 
-## Requirements
-- Python >= 3.8
-- LaTex (with packages: latexmk, koma-script, minitoc, pdfpages, graphics, datetime, hyperref)
-
 
 ## Installation
+
 Journalmk is actually just a python script, but also packaged
 and available on the python package index (PyPI). It can be
 used without any installation as python script from the command line,
 or it can be installed with a package installer, like pip:
 
-* most recent release
+* most recent release from PyPI (**recommended**)
 
-```pip```
+```pip install journalmk```
 
-* from a git tag
+* most recent commit from the master branch
 
-```pip```
+```pip install git+https://github.com/riemarc/journalmk.git```
 
-* from a git repo commit
-
-```pip```
-
-* from local version as editable
-
-```pip```
+### Requirements
+- Python >= 3.8
+- LaTex (with packages: latexmk, koma-script, minitoc, pdfpages, graphics, datetime, hyperref)
 
 ### Without installation
 The command `journalmk` is only available when the package is installed.
 If you want to use  journalmk without installation, place `journalmk.py` in the build
 directory and execute `python journalmk.py`.
+
 
 ## Notes
 - Tested under Ubuntu 20.04 with Texlive 2019 and Python 3.8.

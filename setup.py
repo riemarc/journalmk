@@ -1,6 +1,6 @@
 import setuptools
 
-description = ("Creates a pdf-notebook/journal out of your journal/xournal/xournalpp/... notes, using latex + python.")
+description = ("Creates a pdf notebook/journal out of your digital notes, using latex + python")
 
 with open("requirements.txt") as f:
     requirements = f.read().splitlines()
