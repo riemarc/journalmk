@@ -1,3 +1,8 @@
+[![name](https://img.shields.io/pypi/v/journalmk?label=pypi%20package)](https://pypi.org/project/journalmk)
+[![name](https://img.shields.io/pypi/dm/journalmk)](https://pypi.org/project/journalmk)
+
+[![name](https://upload.wikimedia.org/wikipedia/commons/6/64/PyPI_logo.svg)](https://pypi.org/project/journalmk)
+
 # Journalmk
 
 Creates a pdf notebook/journal out of journal/xournal/xournalpp/... notes,
