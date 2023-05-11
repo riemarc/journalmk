@@ -1,12 +1,12 @@
-import unittest, os, subprocess
+import unittest
 from journalmk.__main__ import main
 from journalmk.journalmk import *
 
 paths = dict(
-    chrono=["..", "example", "journal_chronological"],
-    topo=["..", "example", "journal_topological"],
-    topo_libre=["..", "example", "journal_topological_libreoffice"],
-    chrono_mpl=["..", "example", "journal_chronological_matplotlib"])
+    chrono=["..", "..", "examples", "journal_chronological"],
+    topo=["..", "..", "examples", "journal_topological"],
+    topo_libre=["..", "..", "examples", "journal_topological_libreoffice"],
+    chrono_mpl=["..", "..", "examples", "journal_chronological_matplotlib"])
 for key, path in paths.items():
     paths[key] = os.path.abspath(os.path.join(*path))
 
