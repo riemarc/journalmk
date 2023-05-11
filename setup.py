@@ -5,11 +5,11 @@ def read_file(filename):
     with open(os.path.join(os.path.dirname(__file__), filename)) as file:
         return file.read()
 
-description = ("Creates a pdf notebook/journal out of your digital notes, using latex + python")
+description = "Creates a pdf notebook/journal out of your digital notes, using latex + python"
 
 setuptools.setup(
     name="journalmk",
-    version="2022.3",
+    version="2023.1.1",
     url="https://github.com/riemarc/journalmk",
     author="Marcus Riesmeier",
     author_email="gluehen-sierren-0c@icloud.com",
@@ -27,4 +27,3 @@ setuptools.setup(
         "console_scripts": ['journalmk=journalmk.__main__:main'],
     }
 )
-
